@@ -1,0 +1,328 @@
+.wrap {
+  --id-w: 360px;
+  --pct-w: 150px;
+  --col-gap: 28px;
+
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 26px;
+  font-size: 13px;
+  color: var(--text-secondary);
+
+  span {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+  }
+}
+
+.board {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 32px 32px;
+  border: 1px solid var(--border-color);
+  border-radius: 22px;
+  background: var(--bg-primary);
+  overflow-x: auto;
+}
+
+.lane {
+  display: grid;
+  grid-template-columns: var(--id-w) minmax(420px, 1fr) var(--pct-w);
+  align-items: center;
+  gap: var(--col-gap);
+  min-width: 1040px;
+}
+
+.laneDisabled {
+  opacity: 0.45;
+}
+
+/* ---------- 轴 ---------- */
+
+.axisRow {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  padding: 18px 0 8px;
+  background: var(--bg-primary);
+}
+
+.axis {
+  position: relative;
+  height: 20px;
+}
+
+.tick {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+
+  &:first-child {
+    transform: none;
+  }
+
+  &:last-child {
+    transform: translateX(-100%);
+  }
+}
+
+.pcts {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  justify-items: center;
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+
+.lanes {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.gridlines {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: calc(var(--id-w) + var(--col-gap));
+  right: calc(var(--pct-w) + var(--col-gap));
+  pointer-events: none;
+
+  span {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: var(--border-color);
+    opacity: 0.8;
+
+    &:first-child {
+      background: var(--text-tertiary);
+      opacity: 0.55;
+    }
+  }
+}
+
+/* ---------- 泳道 ---------- */
+
+.lanes .lane {
+  height: 92px;
+  border-top: 1px solid color-mix(in srgb, var(--border-color) 55%, transparent);
+
+  &:first-of-type {
+    border-top: 0;
+  }
+}
+
+.identity {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+
+  > :last-child {
+    margin-left: auto;
+  }
+}
+
+.identityText {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.name {
+  overflow: hidden;
+  font-size: 15px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.email {
+  overflow: hidden;
+  font-family: var(--font-mono, ui-monospace, Menlo, monospace);
+  font-size: 12px;
+  color: var(--text-secondary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.trackArea {
+  position: relative;
+  height: 100%;
+}
+
+.rail {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 2px;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--text-tertiary) 24%, transparent);
+  transform: translateY(-50%);
+}
+
+.trackArea[data-status='error'] .rail {
+  background: color-mix(in srgb, var(--error-color) 35%, transparent);
+}
+
+/* ---------- 标记 ---------- */
+
+.marker {
+  position: absolute;
+  top: 50%;
+  width: 0;
+  height: 0;
+}
+
+.glyph {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: block;
+  width: 12px;
+  height: 12px;
+  background: var(--tone, var(--text-secondary));
+  transform: translate(-50%, -50%);
+  box-shadow: 0 0 0 3px var(--bg-primary);
+}
+
+.diamond .glyph,
+.glyph.diamond {
+  width: 11px;
+  height: 11px;
+  border-radius: 2px;
+  transform: translate(-50%, -50%) rotate(45deg);
+}
+
+.diamondHollow .glyph,
+.glyph.diamondHollow {
+  width: 11px;
+  height: 11px;
+  border-radius: 2px;
+  background: var(--bg-primary);
+  border: 2px solid var(--tone, var(--text-secondary));
+  transform: translate(-50%, -50%) rotate(45deg);
+}
+
+.circle .glyph,
+.glyph.circle {
+  border-radius: 50%;
+}
+
+.square .glyph,
+.glyph.square {
+  width: 11px;
+  height: 11px;
+  border-radius: 3px;
+}
+
+/* 图例里的字形不在泳道上，去掉绝对定位，保持菱形的旋转。 */
+.legend .glyph {
+  position: static;
+  flex: none;
+  transform: none;
+  box-shadow: none;
+}
+
+.legend .glyph.diamond,
+.legend .glyph.diamondHollow {
+  transform: rotate(45deg);
+}
+
+.markerLabel {
+  position: absolute;
+  left: 0;
+  transform: translateX(-50%);
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: var(--bg-primary);
+  font-size: 11.5px;
+  font-weight: 550;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--text-secondary);
+}
+
+.top .markerLabel {
+  bottom: 14px;
+}
+
+.bottom .markerLabel {
+  top: 14px;
+}
+
+.flip .markerLabel {
+  left: auto;
+  right: -8px;
+  transform: none;
+  text-align: right;
+}
+
+.edge .markerLabel {
+  left: -8px;
+  transform: none;
+}
+
+.tier2 .markerLabel {
+  top: 34px;
+}
+
+.tier2::after {
+  content: '';
+  position: absolute;
+  top: 7px;
+  left: 0;
+  width: 1px;
+  height: 28px;
+  background: color-mix(in srgb, var(--tone, var(--text-tertiary)) 55%, transparent);
+  transform: translateX(-0.5px);
+}
+
+.markerTone .markerLabel {
+  color: var(--tone);
+}
+
+/* ---------- 右侧数值 ---------- */
+
+.lanes .pcts {
+  font-size: 16px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  text-transform: none;
+}
+
+.pct {
+  font-variant-numeric: tabular-nums;
+  color: var(--tone);
+}
+
+.pctEmpty {
+  color: var(--text-quaternary);
+}
+
+.pctError {
+  grid-column: span 3;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--error-color);
+}

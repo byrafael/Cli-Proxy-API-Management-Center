@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { Navigate, useRoutes, type Location } from 'react-router-dom';
 import { DashboardPage } from '@/features/dashboard/DashboardPage';
 import { ProvidersWorkbenchPage } from '@/features/providers/ProvidersWorkbenchPage';
@@ -14,8 +15,22 @@ import { LogsPage } from '@/features/logs/LogsPage';
 import { SystemPage } from '@/pages/SystemPage';
 import { useAuthStore } from '@/stores';
 
+/**
+ * 额度页是默认落地页：每次加载页面后第一次落在 `/` 时转到额度页。
+ * 之后侧栏的「仪表盘」（指向 `/`）仍打开仪表盘 —— 侧栏本身不改。
+ */
+let landingHandled = false;
+
+function LandingRoute() {
+  const [redirect] = useState(() => !landingHandled);
+  useEffect(() => {
+    landingHandled = true;
+  }, []);
+  return redirect ? <Navigate to="/quota" replace /> : <DashboardPage />;
+}
+
 const createMainRoutes = (supportsPlugin: boolean) => [
-  { path: '/', element: <DashboardPage /> },
+  { path: '/', element: <LandingRoute /> },
   { path: '/dashboard', element: <DashboardPage /> },
   { path: '/settings', element: <Navigate to="/config" replace /> },
   { path: '/api-keys', element: <Navigate to="/config" replace /> },
