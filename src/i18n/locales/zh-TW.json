@@ -1718,7 +1718,16 @@
       "rename": "重新命名",
       "rename_label": "顯示名稱",
       "rename_saved": "顯示名稱已儲存",
-      "rename_failed": "無法儲存顯示名稱"
+      "rename_failed": "無法儲存顯示名稱",
+      "col_resets": "手動重置",
+      "resets_none": "無",
+      "resets_count_one": "{{count}} 次重置",
+      "resets_count_other": "{{count}} 次重置",
+      "resets_next": "最近 {{time}} 後到期",
+      "resets_use": "使用",
+      "resets_retry": "重試",
+      "resets_detail_item": "{{label}} · {{date}} 到期",
+      "resets_when_limited": "Claude 只允許在帳號被限額時使用手動重置"
     }
   },
   "plugin_management": {

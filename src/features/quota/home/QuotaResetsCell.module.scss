@@ -1,0 +1,74 @@
+.cell {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.count {
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--text-primary);
+
+  &.warm {
+    color: var(--tone);
+  }
+
+  &.none {
+    font-weight: 500;
+    color: var(--text-tertiary);
+  }
+}
+
+.sub {
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.message {
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--text-tertiary);
+}
+
+.empty {
+  color: var(--text-quaternary);
+}
+
+.use {
+  height: 26px;
+  padding: 0 10px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    border-color var(--dur-hover, 200ms) ease,
+    background-color var(--dur-hover, 200ms) ease;
+
+  &:hover:not(:disabled) {
+    border-color: var(--border-hover);
+    background: var(--bg-tertiary);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--primary-30);
+    outline-offset: 1px;
+  }
+}

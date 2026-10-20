@@ -1693,7 +1693,16 @@
       "rename": "Rename",
       "rename_label": "Display name",
       "rename_saved": "Display name saved",
-      "rename_failed": "Could not save the display name"
+      "rename_failed": "Could not save the display name",
+      "col_resets": "Manual resets",
+      "resets_none": "None",
+      "resets_count_one": "{{count}} reset",
+      "resets_count_other": "{{count}} resets",
+      "resets_next": "next expires in {{time}}",
+      "resets_use": "Use",
+      "resets_retry": "Retry",
+      "resets_detail_item": "{{label}} · expires {{date}}",
+      "resets_when_limited": "Claude only allows a manual reset while the account is limited"
     }
   },
   "plugin_management": {

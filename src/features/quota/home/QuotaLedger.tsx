@@ -5,7 +5,7 @@
  * 保留旧额度卡片上的两个动作，只是不再占一整行。
  */
 
-import { useMemo, useState, type KeyboardEvent } from 'react';
+import { useMemo, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { IconChevronDown, IconPencil, IconRefreshCw } from '@/components/ui/icons';
 import {
   PROVIDER_LABEL,
@@ -32,21 +32,21 @@ const NS = 'quota_management.home';
 export interface QuotaRowActions {
   /** 连接正常且列表已落定。 */
   canAct: boolean;
-  /** 正在被重置的凭证 id。 */
-  resettingId: string | null;
   onRefresh: (id: string) => void;
-  canReset: (id: string) => boolean;
-  onReset: (id: string) => void;
   /** 当前的自定义显示名（备注）；没有则为空串。 */
   noteFor: (id: string) => string;
   /** 保存自定义显示名；空串清除。失败时 reject（页面已提示）。 */
   onRename: (id: string, name: string) => Promise<void>;
 }
 
-type LedgerProps = QuotaViewProps & { actions: QuotaRowActions };
+type LedgerProps = QuotaViewProps & {
+  actions: QuotaRowActions;
+  /** 手动重置列：由页面渲染（需要凭证文件与额度状态）。 */
+  renderResets: (account: QuotaAccount) => ReactNode;
+};
 
 /** 固定列宽（占表宽百分比，合计 100）：内容再长也不会挤占别的列。 */
-const COLUMN_WIDTHS = [28, 12, 16, 12, 10.5, 10.5, 11] as const;
+const COLUMN_WIDTHS = [22, 9, 14, 9, 10, 10.5, 10.5, 15] as const;
 
 const COLUMNS = [
   'col_account',
@@ -56,6 +56,7 @@ const COLUMNS = [
   'col_five_hour',
   'col_weekly',
   'col_fable',
+  'col_resets',
 ] as const;
 
 function LedgerRow({
@@ -64,12 +65,15 @@ function LedgerRow({
   redact,
   theme,
   actions,
-}: { account: QuotaAccount } & Pick<LedgerProps, 'now' | 'redact' | 'theme' | 'actions'>) {
+  renderResets,
+}: { account: QuotaAccount } & Pick<
+  LedgerProps,
+  'now' | 'redact' | 'theme' | 'actions' | 'renderResets'
+>) {
   const { t } = useQuotaFormat();
   const loaded = !account.pending && !account.error && !account.disabled;
   const windowEnds = loaded ? windowEndsAt(account) : null;
   const placeholder = account.pending ? '…' : '—';
-  const busy = actions.resettingId === account.id;
   const title = accountTitle(account, redact);
   const errorText = account.error && redact ? redactEmailsIn(account.error) : account.error;
   const [editing, setEditing] = useState(false);
@@ -152,21 +156,11 @@ function LedgerRow({
               </button>
               {!account.disabled && (
                 <>
-                  {actions.canReset(account.id) && (
-                    <button
-                      type="button"
-                      className={styles.actionText}
-                      onClick={() => actions.onReset(account.id)}
-                      disabled={!actions.canAct || account.pending || busy}
-                    >
-                      {t('codex_quota.reset_button')}
-                    </button>
-                  )}
                   <button
                     type="button"
                     className={styles.actionIcon}
                     onClick={() => actions.onRefresh(account.id)}
-                    disabled={!actions.canAct || busy}
+                    disabled={!actions.canAct}
                     aria-label={t('auth_files.quota_refresh_single')}
                     title={t('auth_files.quota_refresh_hint')}
                   >
@@ -223,11 +217,20 @@ function LedgerRow({
           }
         />
       </td>
+      <td>{renderResets(account)}</td>
     </tr>
   );
 }
 
-export function QuotaLedger({ accounts, now, redact, theme, groupBy, actions }: LedgerProps) {
+export function QuotaLedger({
+  accounts,
+  now,
+  redact,
+  theme,
+  groupBy,
+  actions,
+  renderResets,
+}: LedgerProps) {
   const { t, groupTitle } = useQuotaFormat();
   const groups = useMemo(() => groupAccounts(accounts, groupBy, now), [accounts, groupBy, now]);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
@@ -300,6 +303,7 @@ export function QuotaLedger({ accounts, now, redact, theme, groupBy, actions }: 
                     redact={redact}
                     theme={theme}
                     actions={actions}
+                    renderResets={renderResets}
                   />
                 ))}
             </tbody>
