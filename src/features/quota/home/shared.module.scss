@@ -1,0 +1,145 @@
+/* 额度首页共享样式：全部走主题令牌，浅色 / 纯白 / 深色自动适配。 */
+
+.toneHigh {
+  --tone: var(--success-color);
+}
+
+.toneMedium {
+  --tone: var(--quota-medium-color, #e0aa14);
+}
+
+.toneLow {
+  --tone: var(--error-color);
+}
+
+.toneNone {
+  --tone: var(--text-tertiary);
+}
+
+.empty {
+  color: var(--text-quaternary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- 图标 ---------- */
+
+.mark {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+
+  img {
+    display: block;
+    object-fit: contain;
+  }
+}
+
+.markFallback {
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+/* ---------- 水位条 ---------- */
+
+.limit {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 96px;
+  max-width: 100%;
+}
+
+.limitPct {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+}
+
+.limitReset {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.track {
+  display: block;
+  height: 5px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--text-tertiary) 22%, transparent);
+  overflow: hidden;
+}
+
+.fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--tone);
+  transition: width 300ms var(--ease-out-strong, ease);
+}
+
+/* ---------- 时间 ---------- */
+
+.time {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 2px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.timeStacked {
+  line-height: 1.25;
+}
+
+.timePrimary {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.timeSecondary {
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.time.toneMedium .timePrimary,
+.time.toneLow .timePrimary {
+  color: var(--tone);
+}
+
+/* ---------- 状态 / 套餐 ---------- */
+
+.dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--tone);
+}
+
+.dot {
+  display: inline-block;
+  flex: none;
+}
+
+.plan {
+  display: inline-block;
+  max-width: 128px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 20px;
+  align-items: center;
+  height: 22px;
+  padding: 0 9px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  color: var(--text-secondary);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+}
