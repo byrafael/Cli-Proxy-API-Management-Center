@@ -1698,7 +1698,16 @@
       "rename": "Переименовать",
       "rename_label": "Отображаемое имя",
       "rename_saved": "Отображаемое имя сохранено",
-      "rename_failed": "Не удалось сохранить отображаемое имя"
+      "rename_failed": "Не удалось сохранить отображаемое имя",
+      "col_resets": "Ручные сбросы",
+      "resets_none": "Нет",
+      "resets_count_one": "{{count}} сброс",
+      "resets_count_other": "{{count}} сбросов",
+      "resets_next": "ближайший истекает через {{time}}",
+      "resets_use": "Исп.",
+      "resets_retry": "Повтор",
+      "resets_detail_item": "{{label}} · истекает {{date}}",
+      "resets_when_limited": "Claude разрешает ручной сброс, только когда аккаунт достиг лимита"
     }
   },
   "plugin_management": {

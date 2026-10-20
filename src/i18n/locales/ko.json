@@ -1693,7 +1693,16 @@
       "rename": "이름 바꾸기",
       "rename_label": "표시 이름",
       "rename_saved": "표시 이름을 저장했습니다",
-      "rename_failed": "표시 이름을 저장할 수 없습니다"
+      "rename_failed": "표시 이름을 저장할 수 없습니다",
+      "col_resets": "수동 초기화",
+      "resets_none": "없음",
+      "resets_count_one": "초기화 {{count}}회",
+      "resets_count_other": "초기화 {{count}}회",
+      "resets_next": "가장 빠른 만료까지 {{time}}",
+      "resets_use": "사용",
+      "resets_retry": "재시도",
+      "resets_detail_item": "{{label}} · {{date}} 만료",
+      "resets_when_limited": "Claude는 계정이 한도에 도달했을 때만 수동 초기화를 허용합니다"
     }
   },
   "plugin_management": {

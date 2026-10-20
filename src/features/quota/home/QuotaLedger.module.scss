@@ -135,8 +135,7 @@
   opacity: 1;
 }
 
-.actionIcon,
-.actionText {
+.actionIcon {
   display: inline-grid;
   place-items: center;
   height: 28px;
@@ -164,12 +163,6 @@
 
 .actionIcon {
   width: 28px;
-}
-
-.actionText {
-  padding: 0 10px;
-  font-size: 12px;
-  font-weight: 550;
 }
 
 .spinning {

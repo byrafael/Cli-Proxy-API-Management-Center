@@ -1649,7 +1649,16 @@
       "rename": "Đổi tên",
       "rename_label": "Tên hiển thị",
       "rename_saved": "Đã lưu tên hiển thị",
-      "rename_failed": "Không thể lưu tên hiển thị"
+      "rename_failed": "Không thể lưu tên hiển thị",
+      "col_resets": "Đặt lại thủ công",
+      "resets_none": "Không có",
+      "resets_count_one": "{{count}} lần đặt lại",
+      "resets_count_other": "{{count}} lần đặt lại",
+      "resets_next": "gần nhất hết hạn sau {{time}}",
+      "resets_use": "Dùng",
+      "resets_retry": "Thử lại",
+      "resets_detail_item": "{{label}} · hết hạn {{date}}",
+      "resets_when_limited": "Claude chỉ cho phép đặt lại thủ công khi tài khoản đã hết hạn mức"
     }
   },
   "plugin_management": {

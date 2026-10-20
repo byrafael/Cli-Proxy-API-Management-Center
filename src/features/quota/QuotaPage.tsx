@@ -36,8 +36,10 @@ import {
   nextEventAt,
   summarize,
   type GroupBy,
+  type QuotaAccount,
 } from './home/model';
 import { QuotaLedger, type QuotaRowActions } from './home/QuotaLedger';
+import { QuotaResetsCell } from './home/QuotaResetsCell';
 import { QuotaRunway } from './home/QuotaRunway';
 import { useQuotaFormat } from './home/useQuotaFormat';
 import { canRefreshQuotaAfterList, classifyQuotaFiles, type QuotaFileEntry } from './logic';
@@ -293,25 +295,9 @@ export function QuotaPage() {
   const rowActions = useMemo<QuotaRowActions>(
     () => ({
       canAct: filesSettled,
-      resettingId: resettingQuotaName,
       onRefresh: (id) => {
         const entry = entryById.get(id);
         if (entry) void refreshQuota(entry.file, QUOTA_ADAPTERS[entry.type]);
-      },
-      canReset: (id) => {
-        const entry = entryById.get(id);
-        if (!entry) return false;
-        const adapter = QUOTA_ADAPTERS[entry.type];
-        const quota = quotaByType[entry.type][id];
-        return (
-          quota?.status === 'success' &&
-          Boolean(adapter.resetQuota) &&
-          Boolean(adapter.canResetQuota?.(quota))
-        );
-      },
-      onReset: (id) => {
-        const entry = entryById.get(id);
-        if (entry) resetQuota(entry.file, QUOTA_ADAPTERS[entry.type]);
       },
       noteFor: (id) => entryById.get(id)?.file.note?.trim() ?? '',
       onRename: async (id, name) => {
@@ -337,16 +323,27 @@ export function QuotaPage() {
         }
       },
     }),
-    [
-      entryById,
-      filesSettled,
-      quotaByType,
-      refreshQuota,
-      resetQuota,
-      resettingQuotaName,
-      showNotification,
-      t,
-    ]
+    [entryById, filesSettled, refreshQuota, showNotification, t]
+  );
+
+  const renderResets = useCallback(
+    (account: QuotaAccount) => {
+      const entry = entryById.get(account.id);
+      if (!entry) return null;
+      const adapter = QUOTA_ADAPTERS[entry.type];
+      return (
+        <QuotaResetsCell
+          entry={entry}
+          quota={quotaByType[entry.type][account.id]}
+          now={now}
+          canAct={filesSettled}
+          resetting={resettingQuotaName === account.id}
+          onRefresh={() => void refreshQuota(entry.file, adapter)}
+          onUseCodex={() => resetQuota(entry.file, adapter)}
+        />
+      );
+    },
+    [entryById, filesSettled, now, quotaByType, refreshQuota, resetQuota, resettingQuotaName]
   );
 
   /* ---------- 控件 ---------- */
@@ -511,6 +508,7 @@ export function QuotaPage() {
               theme={resolvedTheme}
               groupBy={groupBy}
               actions={rowActions}
+              renderResets={renderResets}
             />
 
             <section className={styles.runway} aria-labelledby="quota-runway-title">

@@ -1690,7 +1690,16 @@
       "rename": "重命名",
       "rename_label": "显示名称",
       "rename_saved": "显示名称已保存",
-      "rename_failed": "无法保存显示名称"
+      "rename_failed": "无法保存显示名称",
+      "col_resets": "手动重置",
+      "resets_none": "无",
+      "resets_count_one": "{{count}} 次重置",
+      "resets_count_other": "{{count}} 次重置",
+      "resets_next": "最近 {{time}} 后过期",
+      "resets_use": "使用",
+      "resets_retry": "重试",
+      "resets_detail_item": "{{label}} · {{date}} 到期",
+      "resets_when_limited": "Claude 只允许在账号被限额时使用手动重置"
     }
   },
   "plugin_management": {
