@@ -1649,7 +1649,11 @@
       "marker_week": "Tuần",
       "marker_login": "Đăng nhập",
       "marker_plan": "Gói",
-      "marker_expired": "{{label}} đã hết hạn"
+      "marker_expired": "{{label}} đã hết hạn",
+      "rename": "Đổi tên",
+      "rename_label": "Tên hiển thị",
+      "rename_saved": "Đã lưu tên hiển thị",
+      "rename_failed": "Không thể lưu tên hiển thị"
     }
   },
   "plugin_management": {

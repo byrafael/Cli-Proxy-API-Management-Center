@@ -5,8 +5,8 @@
  * 保留旧额度卡片上的两个动作，只是不再占一整行。
  */
 
-import { useMemo, useState } from 'react';
-import { IconChevronDown, IconRefreshCw } from '@/components/ui/icons';
+import { useMemo, useState, type KeyboardEvent } from 'react';
+import { IconChevronDown, IconPencil, IconRefreshCw } from '@/components/ui/icons';
 import {
   PROVIDER_LABEL,
   accountTitle,
@@ -37,6 +37,10 @@ export interface QuotaRowActions {
   onRefresh: (id: string) => void;
   canReset: (id: string) => boolean;
   onReset: (id: string) => void;
+  /** 当前的自定义显示名（备注）；没有则为空串。 */
+  noteFor: (id: string) => string;
+  /** 保存自定义显示名；空串清除。失败时 reject（页面已提示）。 */
+  onRename: (id: string, name: string) => Promise<void>;
 }
 
 type LedgerProps = QuotaViewProps & { actions: QuotaRowActions };
@@ -69,6 +73,42 @@ function LedgerRow({
   const busy = actions.resettingId === account.id;
   const title = accountTitle(account, redact);
   const errorText = account.error && redact ? redactEmailsIn(account.error) : account.error;
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const startEditing = () => {
+    setDraft(actions.noteFor(account.id));
+    setEditing(true);
+  };
+  const cancelEditing = () => {
+    if (!saving) setEditing(false);
+  };
+  const saveEditing = async () => {
+    if (saving) return;
+    if (draft.trim() === actions.noteFor(account.id)) {
+      setEditing(false);
+      return;
+    }
+    setSaving(true);
+    try {
+      await actions.onRename(account.id, draft);
+      setEditing(false);
+    } catch {
+      // 页面已经提示失败；留在编辑态让用户重试。
+    } finally {
+      setSaving(false);
+    }
+  };
+  const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      void saveEditing();
+    } else if (event.key === 'Escape') {
+      event.preventDefault();
+      cancelEditing();
+    }
+  };
 
   return (
     <tr className={`${styles.row} ${account.disabled ? styles.rowDimmed : ''}`}>
@@ -78,34 +118,66 @@ function LedgerRow({
           <div className={styles.identityText}>
             <span className={styles.name}>
               <StatusDot account={account} now={now} />
-              <span className={styles.nameText} title={redact ? undefined : title.primary}>
-                {title.primary}
-              </span>
+              {editing ? (
+                <input
+                  className={styles.nameInput}
+                  value={draft}
+                  autoFocus
+                  disabled={saving}
+                  maxLength={80}
+                  placeholder={redact ? redactEmailsIn(title.primary) : title.primary}
+                  aria-label={t(`${NS}.rename_label`)}
+                  onChange={(event) => setDraft(event.target.value)}
+                  onKeyDown={handleKeyDown}
+                  onBlur={() => void saveEditing()}
+                />
+              ) : (
+                <span className={styles.nameText} title={redact ? undefined : title.primary}>
+                  {title.primary}
+                </span>
+              )}
             </span>
             <span className={styles.email}>{title.secondary}</span>
           </div>
-          {!account.disabled && (
+          {!editing && (
             <div className={styles.actions}>
-              {actions.canReset(account.id) && (
-                <button
-                  type="button"
-                  className={styles.actionText}
-                  onClick={() => actions.onReset(account.id)}
-                  disabled={!actions.canAct || account.pending || busy}
-                >
-                  {t('codex_quota.reset_button')}
-                </button>
-              )}
               <button
                 type="button"
                 className={styles.actionIcon}
-                onClick={() => actions.onRefresh(account.id)}
-                disabled={!actions.canAct || busy}
-                aria-label={t('auth_files.quota_refresh_single')}
-                title={t('auth_files.quota_refresh_hint')}
+                onClick={startEditing}
+                disabled={!actions.canAct}
+                aria-label={t(`${NS}.rename`)}
+                title={t(`${NS}.rename`)}
               >
-                <IconRefreshCw size={14} className={account.pending ? styles.spinning : undefined} />
+                <IconPencil size={14} />
               </button>
+              {!account.disabled && (
+                <>
+                  {actions.canReset(account.id) && (
+                    <button
+                      type="button"
+                      className={styles.actionText}
+                      onClick={() => actions.onReset(account.id)}
+                      disabled={!actions.canAct || account.pending || busy}
+                    >
+                      {t('codex_quota.reset_button')}
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    className={styles.actionIcon}
+                    onClick={() => actions.onRefresh(account.id)}
+                    disabled={!actions.canAct || busy}
+                    aria-label={t('auth_files.quota_refresh_single')}
+                    title={t('auth_files.quota_refresh_hint')}
+                  >
+                    <IconRefreshCw
+                      size={14}
+                      className={account.pending ? styles.spinning : undefined}
+                    />
+                  </button>
+                </>
+              )}
             </div>
           )}
         </div>
@@ -210,7 +282,9 @@ export function QuotaLedger({ accounts, now, redact, theme, groupBy, actions }: 
                       {group.provider && (
                         <ProviderMark provider={group.provider} theme={theme} size={24} />
                       )}
-                      <span className={styles.groupLabel}>{groupTitle(group, groupBy, redact)}</span>
+                      <span className={styles.groupLabel}>
+                        {groupTitle(group, groupBy, redact)}
+                      </span>
                       <span className={styles.groupMeta}>
                         {t(`${NS}.group_accounts`, { count: group.accounts.length })}
                         <span className={styles.groupDivider} aria-hidden="true" />
