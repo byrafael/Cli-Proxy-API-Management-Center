@@ -1698,7 +1698,11 @@
       "marker_week": "Нед.",
       "marker_login": "Вход",
       "marker_plan": "Тариф",
-      "marker_expired": "{{label}}: истёк"
+      "marker_expired": "{{label}}: истёк",
+      "rename": "Переименовать",
+      "rename_label": "Отображаемое имя",
+      "rename_saved": "Отображаемое имя сохранено",
+      "rename_failed": "Не удалось сохранить отображаемое имя"
     }
   },
   "plugin_management": {

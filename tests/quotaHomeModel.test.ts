@@ -218,6 +218,12 @@ describe('quota home email redaction', () => {
   test('derives the display name from the file name without .json', () => {
     expect(accountNameFor({ name: 'maya-claude.json' } as never)).toBe('maya-claude');
   });
+
+  test('a custom display name (note) wins over the label and file name, and clearing it falls back', () => {
+    const file = { name: 'maya-claude.json', label: 'maya@lumen.studio' };
+    expect(accountNameFor({ ...file, note: ' Maya · main ' } as never)).toBe('Maya · main');
+    expect(accountNameFor({ ...file, note: '' } as never)).toBe('maya@lumen.studio');
+  });
 });
 
 describe('quota home ui state', () => {

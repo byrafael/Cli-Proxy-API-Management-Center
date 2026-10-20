@@ -1693,7 +1693,11 @@
       "marker_week": "Week",
       "marker_login": "Login",
       "marker_plan": "Plan",
-      "marker_expired": "{{label}} expired"
+      "marker_expired": "{{label}} expired",
+      "rename": "Rename",
+      "rename_label": "Display name",
+      "rename_saved": "Display name saved",
+      "rename_failed": "Could not save the display name"
     }
   },
   "plugin_management": {

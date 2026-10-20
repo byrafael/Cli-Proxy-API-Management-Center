@@ -22,7 +22,7 @@ import { Skeleton } from '@/components/ui/Skeleton';
 import { useHeaderRefresh } from '@/hooks/useHeaderRefresh';
 import { useNow } from '@/hooks/useNow';
 import { useRevealGroup } from '@/hooks/motion';
-import { useAuthStore, useQuotaStore, useThemeStore } from '@/stores';
+import { useAuthStore, useNotificationStore, useQuotaStore, useThemeStore } from '@/stores';
 import type { AuthFileItem, ResolvedTheme } from '@/types';
 import { resolveQuotaErrorMessage } from '@/utils/quota';
 import { getQuotaCacheKey } from '@/utils/quota/identity';
@@ -56,6 +56,7 @@ export function QuotaPage() {
   const format = useQuotaFormat();
   const connectionStatus = useAuthStore((state) => state.connectionStatus);
   const resolvedTheme: ResolvedTheme = useThemeStore((state) => state.resolvedTheme);
+  const showNotification = useNotificationStore((state) => state.showNotification);
 
   const [files, setFiles] = useState<AuthFileItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -303,15 +304,49 @@ export function QuotaPage() {
         const adapter = QUOTA_ADAPTERS[entry.type];
         const quota = quotaByType[entry.type][id];
         return (
-          quota?.status === 'success' && Boolean(adapter.resetQuota) && Boolean(adapter.canResetQuota?.(quota))
+          quota?.status === 'success' &&
+          Boolean(adapter.resetQuota) &&
+          Boolean(adapter.canResetQuota?.(quota))
         );
       },
       onReset: (id) => {
         const entry = entryById.get(id);
         if (entry) resetQuota(entry.file, QUOTA_ADAPTERS[entry.type]);
       },
+      noteFor: (id) => entryById.get(id)?.file.note?.trim() ?? '',
+      onRename: async (id, name) => {
+        const entry = entryById.get(id);
+        if (!entry) return;
+        const note = name.trim();
+        try {
+          // 显示名就是凭证的备注（note）；清空备注即回到后端 label / 文件名。
+          await authFilesApi.patchFields(entry.file.name, { note });
+          setFiles((prev) =>
+            prev.map((file) =>
+              file.name === entry.file.name ? { ...file, note: note || undefined } : file
+            )
+          );
+          showNotification(t(`${NS}.rename_saved`), 'success');
+        } catch (err: unknown) {
+          const message = err instanceof Error ? err.message : '';
+          showNotification(
+            message ? `${t(`${NS}.rename_failed`)}: ${message}` : t(`${NS}.rename_failed`),
+            'error'
+          );
+          throw err;
+        }
+      },
     }),
-    [entryById, filesSettled, quotaByType, refreshQuota, resetQuota, resettingQuotaName]
+    [
+      entryById,
+      filesSettled,
+      quotaByType,
+      refreshQuota,
+      resetQuota,
+      resettingQuotaName,
+      showNotification,
+      t,
+    ]
   );
 
   /* ---------- 控件 ---------- */
@@ -391,7 +426,11 @@ export function QuotaPage() {
             onClick={handleRedact}
             title={redact ? t(`${NS}.show_emails`) : t(`${NS}.hide_emails`)}
           >
-            {redact ? <IconEyeOff size={15} aria-hidden="true" /> : <IconEye size={15} aria-hidden="true" />}
+            {redact ? (
+              <IconEyeOff size={15} aria-hidden="true" />
+            ) : (
+              <IconEye size={15} aria-hidden="true" />
+            )}
             {redact ? t(`${NS}.emails_hidden`) : t(`${NS}.emails_shown`)}
           </button>
 

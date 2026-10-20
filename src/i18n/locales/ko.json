@@ -1693,7 +1693,11 @@
       "marker_week": "주간",
       "marker_login": "로그인",
       "marker_plan": "플랜",
-      "marker_expired": "{{label}} 만료됨"
+      "marker_expired": "{{label}} 만료됨",
+      "rename": "이름 바꾸기",
+      "rename_label": "표시 이름",
+      "rename_saved": "표시 이름을 저장했습니다",
+      "rename_failed": "표시 이름을 저장할 수 없습니다"
     }
   },
   "plugin_management": {
