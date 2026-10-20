@@ -229,13 +229,6 @@
   border-radius: 50%;
 }
 
-.square .glyph,
-.glyph.square {
-  width: 11px;
-  height: 11px;
-  border-radius: 3px;
-}
-
 /* 图例里的字形不在泳道上，去掉绝对定位，保持菱形的旋转。 */
 .legend .glyph {
   position: static;
@@ -283,20 +276,6 @@
   transform: none;
 }
 
-.tier2 .markerLabel {
-  top: 34px;
-}
-
-.tier2::after {
-  content: '';
-  position: absolute;
-  top: 7px;
-  left: 0;
-  width: 1px;
-  height: 28px;
-  background: color-mix(in srgb, var(--tone, var(--text-tertiary)) 55%, transparent);
-  transform: translateX(-0.5px);
-}
 
 .markerTone .markerLabel {
   color: var(--tone);

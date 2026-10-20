@@ -1,5 +1,5 @@
 /**
- * 额度账本：一行一个凭证，十列信息，按提供商 / 邮箱 / 套餐 / 状态分组，分组头可折叠。
+ * 额度账本：一行一个凭证，七列信息，按提供商 / 邮箱 / 套餐 / 状态分组，分组头可折叠。
  *
  * 每行右侧悬停时出现「刷新额度」，Codex 在有可用重置积分时多一个「重置」——
  * 保留旧额度卡片上的两个动作，只是不再占一整行。
@@ -46,12 +46,11 @@ export interface QuotaRowActions {
 type LedgerProps = QuotaViewProps & { actions: QuotaRowActions };
 
 /** 固定列宽（占表宽百分比，合计 100）：内容再长也不会挤占别的列。 */
-const COLUMN_WIDTHS = [26, 11, 12, 14, 10, 9, 9.5, 8.5] as const;
+const COLUMN_WIDTHS = [28, 12, 16, 12, 10.5, 10.5, 11] as const;
 
 const COLUMNS = [
   'col_account',
   'col_plan',
-  'col_subscription',
   'col_auth',
   'col_window',
   'col_five_hour',
@@ -184,16 +183,6 @@ function LedgerRow({
       </td>
       <td>
         <PlanChip plan={account.plan} />
-      </td>
-      <td>
-        <TimeText
-          ts={account.subscriptionEndsAt}
-          now={now}
-          kind="subscription"
-          unavailableHint={
-            account.provider === 'claude' ? t(`${NS}.claude_no_subscription_end`) : undefined
-          }
-        />
       </td>
       <td>
         {account.error ? (
