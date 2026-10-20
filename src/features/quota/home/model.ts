@@ -18,7 +18,7 @@ export const PROVIDER_LABEL: Record<QuotaProviderType, string> = {
   kimi: 'Kimi',
   devin: 'Devin',
   meta: 'Meta',
-  qoder: 'Qoder',
+  plugin: 'Plugin',
 };
 
 export type PlanTier = 'free' | 'pro' | 'max' | 'team' | 'unknown';
@@ -204,9 +204,36 @@ export const maskEmail = (email: string): string => {
 };
 
 /** 没有邮箱的凭证（API key 类）显示为 —，不回落到 account（它可能就是密钥本身）。 */
+const EMAIL_PATTERN = /[^\s@]+@[^\s@]+\.[^\s@]+/g;
+
+/** 文本里夹带的邮箱（文件名、备注、标签常常就是邮箱）一并按脱敏处理。 */
+export const redactEmailsIn = (text: string): string => text.replace(EMAIL_PATTERN, maskEmail);
+
 export const displayEmail = (email: string, redact: boolean): string => {
   if (!email) return '—';
   return redact ? maskEmail(email) : email;
+};
+
+/**
+ * 行的两行标题。后端的 label / 文件名经常就是邮箱本身：这时主行显示邮箱、副行显示提供商，
+ * 不再把同一个邮箱写两遍；否则主行是备注 / 名称（脱敏时其中的邮箱同样被遮住），副行是邮箱。
+ */
+export const accountTitle = (
+  account: QuotaAccount,
+  redact: boolean
+): { primary: string; secondary: string } => {
+  const name = account.name.trim();
+  const nameIsEmail = account.email !== '' && name.toLowerCase() === account.email.toLowerCase();
+  if (nameIsEmail) {
+    return {
+      primary: displayEmail(account.email, redact),
+      secondary: PROVIDER_LABEL[account.provider],
+    };
+  }
+  return {
+    primary: redact ? redactEmailsIn(name) : name,
+    secondary: displayEmail(account.email, redact),
+  };
 };
 
 /* ---------- 分组 ---------- */
@@ -342,7 +369,8 @@ export const filterAccounts = (accounts: QuotaAccount[], query: string, redact: 
   if (!needle) return accounts;
   return accounts.filter((account) => {
     const haystack = [
-      account.name,
+      // 名称里可能带真实邮箱：脱敏时只拿遮住后的文本参与搜索。
+      redact ? redactEmailsIn(account.name) : account.name,
       account.plan,
       PROVIDER_LABEL[account.provider],
       // 脱敏时不允许按真实邮箱搜索，避免通过搜索结果反推。

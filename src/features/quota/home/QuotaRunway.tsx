@@ -4,7 +4,7 @@
  * 泳道顺序由页面决定（最近的事件在前），这里不分组。
  */
 
-import { DAY, HOUR, accountStatus, displayEmail, timeTone, toneFor, type Tone } from './model';
+import { DAY, HOUR, accountStatus, accountTitle, timeTone, toneFor, type Tone } from './model';
 import { PlanChip, ProviderMark, type QuotaViewProps } from './shared';
 import { toneClassFor } from './tone';
 import { useQuotaFormat } from './useQuotaFormat';
@@ -111,16 +111,17 @@ function Lane({
 }: { account: QuotaAccount } & Pick<QuotaViewProps, 'now' | 'redact' | 'theme'>) {
   const { t } = useQuotaFormat();
   const status = accountStatus(account, now);
+  const title = accountTitle(account, redact);
   const showWindows = !account.disabled && !account.error && !account.pending;
   return (
     <div className={`${styles.lane} ${account.disabled ? styles.laneDisabled : ''}`}>
       <div className={styles.identity}>
         <ProviderMark provider={account.provider} theme={theme} size={36} />
         <span className={styles.identityText}>
-          <span className={styles.name} title={account.name}>
-            {account.name}
+          <span className={styles.name} title={redact ? undefined : title.primary}>
+            {title.primary}
           </span>
-          <span className={styles.email}>{displayEmail(account.email, redact)}</span>
+          <span className={styles.email}>{title.secondary}</span>
         </span>
         <PlanChip plan={account.plan} />
       </div>

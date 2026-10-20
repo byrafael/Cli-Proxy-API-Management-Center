@@ -27,13 +27,7 @@ function installSessionStorage() {
       return store.size;
     },
   };
-  // defineProperty stays writable on platforms where bun exposes a readonly
-  // global `window` (Linux runners); plain assignment throws there.
-  Object.defineProperty(globalThis, 'window', {
-    value: { sessionStorage: storage },
-    configurable: true,
-    writable: true,
-  });
+  (globalThis as unknown as { window: unknown }).window = { sessionStorage: storage };
   return storage;
 }
 

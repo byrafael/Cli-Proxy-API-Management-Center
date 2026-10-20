@@ -7,13 +7,9 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import type { AuthState, LoginCredentials, ConnectionStatus } from '@/types';
 import { STORAGE_KEY_AUTH } from '@/utils/constants';
-import {
-  createScopedAuthStorage,
-  getAuthLoginStateStorageKey,
-  obfuscatedStorage,
-  resolveLegacyAuthApiBase,
-} from '@/services/storage/secureStorage';
+import { obfuscatedStorage } from '@/services/storage/secureStorage';
 import { apiClient } from '@/services/api/client';
+import { LegacyBackendError, probeLegacyBackend } from '@/services/api/legacyBackendProbe';
 import { useConfigStore } from './useConfigStore';
 import { useModelsStore } from './useModelsStore';
 import { useQuotaStore } from './useQuotaStore';
@@ -53,37 +49,19 @@ export const useAuthStore = create<AuthStoreState>()(
         restoreSessionPromise = (async () => {
           obfuscatedStorage.migratePlaintextKeys(['apiBase', 'apiUrl', 'managementKey']);
 
+          const wasLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
           const legacyBase =
             obfuscatedStorage.getItem<string>('apiBase') ||
             obfuscatedStorage.getItem<string>('apiUrl', { encrypt: true });
           const legacyKey = obfuscatedStorage.getItem<string>('managementKey');
-          const detectedBase = detectApiBaseFromLocation();
-          const migratedLegacyBase = legacyBase
-            ? resolveLegacyAuthApiBase(legacyBase, detectedBase)
-            : null;
 
           const { apiBase, managementKey, rememberPassword } = get();
-          const canUseLegacyCredentials = !apiBase && Boolean(migratedLegacyBase);
           const resolvedBase = normalizeApiBase(
-            apiBase || (canUseLegacyCredentials ? migratedLegacyBase : '') || detectedBase
+            apiBase || legacyBase || detectApiBaseFromLocation()
           );
-          const resolvedKey =
-            managementKey || (canUseLegacyCredentials ? legacyKey : '') || '';
+          const resolvedKey = managementKey || legacyKey || '';
           const resolvedRememberPassword =
-            rememberPassword ||
-            Boolean(managementKey) ||
-            Boolean(canUseLegacyCredentials && legacyKey);
-          const loginStateKey = getAuthLoginStateStorageKey(detectedBase);
-          const wasLoggedIn =
-            localStorage.getItem(loginStateKey) === 'true' ||
-            (canUseLegacyCredentials && localStorage.getItem('isLoggedIn') === 'true');
-
-          if (canUseLegacyCredentials) {
-            obfuscatedStorage.removeItem('apiBase');
-            obfuscatedStorage.removeItem('apiUrl');
-            obfuscatedStorage.removeItem('managementKey');
-            localStorage.removeItem('isLoggedIn');
-          }
+            rememberPassword || Boolean(managementKey) || Boolean(legacyKey);
 
           set({
             apiBase: resolvedBase,
@@ -125,6 +103,7 @@ export const useAuthStore = create<AuthStoreState>()(
             serverBuildDate: null,
             supportsPlugin: false,
           });
+          useConfigStore.getState().clearCache();
           useModelsStore.getState().clearCache();
           useQuotaStore.getState().clearQuotaCache();
 
@@ -134,8 +113,21 @@ export const useAuthStore = create<AuthStoreState>()(
             managementKey,
           });
 
-          // 测试连接 - 获取配置
-          await useConfigStore.getState().fetchConfig(true);
+          // 测试连接 - 获取配置。只在 v8 路由不存在时诊断旧版后端。
+          const revision = apiClient.getConnectionRevision();
+          try {
+            await useConfigStore.getState().fetchConfig(true);
+          } catch (error) {
+            if (
+              (error as { status?: number })?.status === 404 &&
+              revision === apiClient.getConnectionRevision() &&
+              (await probeLegacyBackend(apiBase, managementKey)) &&
+              revision === apiClient.getConnectionRevision()
+            ) {
+              throw new LegacyBackendError();
+            }
+            throw error;
+          }
 
           // 登录成功
           set({
@@ -146,9 +138,9 @@ export const useAuthStore = create<AuthStoreState>()(
             connectionStatus: 'connected',
           });
           if (rememberPassword) {
-            localStorage.setItem(getAuthLoginStateStorageKey(detectApiBaseFromLocation()), 'true');
+            localStorage.setItem('isLoggedIn', 'true');
           } else {
-            localStorage.removeItem(getAuthLoginStateStorageKey(detectApiBaseFromLocation()));
+            localStorage.removeItem('isLoggedIn');
           }
         } catch (error: unknown) {
           set({ connectionStatus: 'error' });
@@ -159,6 +151,7 @@ export const useAuthStore = create<AuthStoreState>()(
       // 登出
       logout: () => {
         restoreSessionPromise = null;
+        apiClient.setConfig({ apiBase: '', managementKey: '' });
         useConfigStore.getState().clearCache();
         useModelsStore.getState().clearCache();
         useQuotaStore.getState().clearQuotaCache();
@@ -171,7 +164,7 @@ export const useAuthStore = create<AuthStoreState>()(
           supportsPlugin: false,
           connectionStatus: 'disconnected',
         });
-        localStorage.removeItem(getAuthLoginStateStorageKey(detectApiBaseFromLocation()));
+        localStorage.removeItem('isLoggedIn');
       },
 
       // 检查认证状态
@@ -220,7 +213,18 @@ export const useAuthStore = create<AuthStoreState>()(
     }),
     {
       name: STORAGE_KEY_AUTH,
-      storage: createJSONStorage(createScopedAuthStorage),
+      storage: createJSONStorage(() => ({
+        getItem: (name) => {
+          const data = obfuscatedStorage.getItem<AuthStoreState>(name);
+          return data ? JSON.stringify(data) : null;
+        },
+        setItem: (name, value) => {
+          obfuscatedStorage.setItem(name, JSON.parse(value));
+        },
+        removeItem: (name) => {
+          obfuscatedStorage.removeItem(name);
+        },
+      })),
       partialize: (state) => ({
         apiBase: state.apiBase,
         ...(state.rememberPassword ? { managementKey: state.managementKey } : {}),

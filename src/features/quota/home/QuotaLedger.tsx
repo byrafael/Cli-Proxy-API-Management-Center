@@ -9,8 +9,9 @@ import { useMemo, useState } from 'react';
 import { IconChevronDown, IconRefreshCw } from '@/components/ui/icons';
 import {
   PROVIDER_LABEL,
-  displayEmail,
+  accountTitle,
   groupAccounts,
+  redactEmailsIn,
   windowEndsAt,
   type QuotaAccount,
 } from './model';
@@ -40,6 +41,9 @@ export interface QuotaRowActions {
 
 type LedgerProps = QuotaViewProps & { actions: QuotaRowActions };
 
+/** 固定列宽（占表宽百分比，合计 100）：内容再长也不会挤占别的列。 */
+const COLUMN_WIDTHS = [26, 11, 12, 14, 10, 9, 9.5, 8.5] as const;
+
 const COLUMNS = [
   'col_account',
   'col_plan',
@@ -63,6 +67,8 @@ function LedgerRow({
   const windowEnds = loaded ? windowEndsAt(account) : null;
   const placeholder = account.pending ? '…' : '—';
   const busy = actions.resettingId === account.id;
+  const title = accountTitle(account, redact);
+  const errorText = account.error && redact ? redactEmailsIn(account.error) : account.error;
 
   return (
     <tr className={`${styles.row} ${account.disabled ? styles.rowDimmed : ''}`}>
@@ -72,11 +78,11 @@ function LedgerRow({
           <div className={styles.identityText}>
             <span className={styles.name}>
               <StatusDot account={account} now={now} />
-              <span className={styles.nameText} title={account.name}>
-                {account.name}
+              <span className={styles.nameText} title={redact ? undefined : title.primary}>
+                {title.primary}
               </span>
             </span>
-            <span className={styles.email}>{displayEmail(account.email, redact)}</span>
+            <span className={styles.email}>{title.secondary}</span>
           </div>
           {!account.disabled && (
             <div className={styles.actions}>
@@ -119,7 +125,9 @@ function LedgerRow({
       </td>
       <td>
         {account.error ? (
-          <span className={styles.errorText}>{account.error}</span>
+          <span className={styles.errorText} title={errorText ?? undefined}>
+            {errorText}
+          </span>
         ) : account.authExpiresAt !== null ? (
           <TimeText ts={account.authExpiresAt} now={now} kind="auth" />
         ) : account.lastRefreshAt !== null ? (
@@ -132,14 +140,14 @@ function LedgerRow({
         <TimeText ts={windowEnds} now={now} kind="window" />
       </td>
       <td>
-        <LimitBar limit={account.fiveHour} now={now} width={104} emptyLabel={placeholder} />
+        <LimitBar limit={account.fiveHour} now={now} width="100%" emptyLabel={placeholder} />
       </td>
       <td>
         <LimitBar
           limit={account.weekly}
           now={now}
           showReset
-          width={124}
+          width="100%"
           emptyLabel={placeholder}
         />
       </td>
@@ -148,7 +156,7 @@ function LedgerRow({
           limit={account.fable}
           now={now}
           showReset
-          width={124}
+          width="100%"
           emptyLabel={
             account.provider === 'claude' && loaded ? t(`${NS}.not_on_plan`) : placeholder
           }
@@ -168,6 +176,11 @@ export function QuotaLedger({ accounts, now, redact, theme, groupBy, actions }: 
   return (
     <div className={styles.wrap}>
       <table className={styles.table}>
+        <colgroup>
+          {COLUMN_WIDTHS.map((width, index) => (
+            <col key={COLUMNS[index]} style={{ width: `${width}%` }} />
+          ))}
+        </colgroup>
         <thead>
           <tr>
             {COLUMNS.map((column) => (

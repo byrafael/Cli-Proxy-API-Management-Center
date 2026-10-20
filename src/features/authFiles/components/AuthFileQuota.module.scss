@@ -34,18 +34,6 @@ $quota-font-size: 11.5px;
   padding: 5px 4px;
 }
 
-.quotaWarningMessage {
-  font-family: $font-mono;
-  font-size: 11.5px;
-  line-height: 1.5;
-  color: var(--warning-text);
-  text-align: center;
-  padding: 5px 7px;
-  border-left: 2px solid var(--warning-border);
-  border-radius: $radius-sm;
-  background: var(--warning-bg);
-}
-
 button.quotaMessageAction {
   cursor: pointer;
   border: 0;
@@ -302,8 +290,9 @@ button.quotaMessageAction {
 .codexResetCreditRow {
   display: flex;
   align-items: baseline;
+  flex-wrap: wrap;
   justify-content: space-between;
-  gap: 8px;
+  gap: 2px 8px;
   font-size: $quota-font-size;
   font-weight: 400;
 }
@@ -326,6 +315,8 @@ button.quotaMessageAction {
 
 .codexResetCreditTime {
   flex-shrink: 0;
+  margin-left: auto;
+  white-space: nowrap;
   font-family: $font-mono;
   font-variant-numeric: tabular-nums;
   color: var(--text-secondary);
