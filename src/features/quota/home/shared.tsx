@@ -111,19 +111,17 @@ export function TimeText({
   ts,
   now,
   kind,
-  unavailableHint,
 }: {
   ts: number | null;
   now: number;
   kind: TimeKind;
-  unavailableHint?: string;
 }) {
   const format = useQuotaFormat();
   if (ts === null) {
     return (
       <span
         className={styles.empty}
-        title={unavailableHint ?? format.t('quota_management.home.not_provided')}
+        title={format.t('quota_management.home.not_provided')}
       >
         —
       </span>

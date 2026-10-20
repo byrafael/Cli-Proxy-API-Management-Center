@@ -52,12 +52,11 @@ describe('quota home tones and formatting', () => {
     expect(new Set(emails.map(maskEmail)).size).toBe(emails.length);
   });
 
-  test('only auth and subscription warm up as they near expiry', () => {
+  test('only auth warms up as it nears expiry', () => {
     expect(timeTone('window', 1)).toBe('none');
     expect(timeTone('auth', 10 * MINUTE)).toBe('low');
     expect(timeTone('auth', 3 * HOUR)).toBe('medium');
     expect(timeTone('auth', 2 * DAY)).toBe('none');
-    expect(timeTone('subscription', 3 * DAY)).toBe('medium');
   });
 });
 

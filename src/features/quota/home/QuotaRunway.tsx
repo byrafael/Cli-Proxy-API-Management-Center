@@ -1,5 +1,5 @@
 /**
- * 时间轴：一条泳道一个凭证，上方标记窗口重置（◆ 5h / ◇ 周），下方标记登录到期（●）与订阅结束（■）。
+ * 时间轴：一条泳道一个凭证，上方标记窗口重置（◆ 5h / ◇ 周），下方标记登录到期（●）。
  * 轴是分段缩放的：近处（分钟 / 小时）有分辨率，远处（天）被压缩。
  * 泳道顺序由页面决定（最近的事件在前），这里不分组。
  */
@@ -44,7 +44,7 @@ const runwayX = (deltaMs: number): number => {
   return STOPS[STOPS.length - 1][1];
 };
 
-type MarkerShape = 'diamond' | 'diamondHollow' | 'circle' | 'square';
+type MarkerShape = 'diamond' | 'diamondHollow' | 'circle';
 
 function Marker({
   ts,
@@ -53,7 +53,6 @@ function Marker({
   tone,
   labelKey,
   side,
-  tier = 1,
 }: {
   ts: number;
   now: number;
@@ -61,8 +60,6 @@ function Marker({
   tone: Tone;
   labelKey: string;
   side: 'top' | 'bottom';
-  /** 第二层标签下沉并带细引线，避免同侧标记挨得近时文字互相覆盖。 */
-  tier?: 1 | 2;
 }) {
   const format = useQuotaFormat();
   const delta = ts - now;
@@ -79,7 +76,6 @@ function Marker({
     side === 'top' ? styles.top : styles.bottom,
     left > 82 ? styles.flip : '',
     left < 8 ? styles.edge : '',
-    tier === 2 ? styles.tier2 : '',
     tone === 'medium' || tone === 'low' ? styles.markerTone : '',
   ];
   return (
@@ -158,17 +154,6 @@ function Lane({
             side="bottom"
           />
         )}
-        {account.subscriptionEndsAt !== null && (
-          <Marker
-            ts={account.subscriptionEndsAt}
-            now={now}
-            shape="square"
-            tone={timeTone('subscription', account.subscriptionEndsAt - now)}
-            labelKey="marker_plan"
-            side="bottom"
-            tier={2}
-          />
-        )}
       </div>
 
       <div className={styles.pcts}>
@@ -200,9 +185,6 @@ export function QuotaRunway({ accounts, now, redact, theme }: Omit<QuotaViewProp
         </span>
         <span>
           <i className={`${styles.glyph} ${styles.circle}`} /> {t(`${NS}.legend_login`)}
-        </span>
-        <span>
-          <i className={`${styles.glyph} ${styles.square}`} /> {t(`${NS}.legend_plan`)}
         </span>
       </div>
 

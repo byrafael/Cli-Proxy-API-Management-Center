@@ -121,15 +121,6 @@ const readPlan = (provider: QuotaProviderType, quota: Record<string, unknown>): 
   return null;
 };
 
-const readSubscriptionEnd = (
-  provider: QuotaProviderType,
-  quota: Record<string, unknown>
-): number | null => {
-  if (provider === 'codex') return readTimestamp(quota.subscriptionActiveUntil);
-  if (provider === 'devin') return readTimestamp(quota.planEndMs);
-  return null;
-};
-
 /* ---------- 窗口 ---------- */
 
 interface WindowLike {
@@ -337,7 +328,6 @@ export function buildQuotaAccount(
     name: accountNameFor(file),
     plan,
     planTier: planTierFor(type, plan),
-    subscriptionEndsAt: loaded ? readSubscriptionEnd(type, state) : null,
     // 后端的 auth-files 列表目前不下发 token 到期；若以后下发会自动生效。
     authExpiresAt: readTimestamp(file.expired ?? file.expires_at ?? file.expiresAt),
     lastRefreshAt: readTimestamp(file.lastRefresh ?? file.last_refresh),

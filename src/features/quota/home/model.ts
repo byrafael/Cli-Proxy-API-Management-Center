@@ -45,7 +45,6 @@ export interface QuotaAccount {
   plan: string | null;
   planTier: PlanTier;
   /** 订阅到期；null = 后端不提供（Claude 的 profile 不暴露）。 */
-  subscriptionEndsAt: number | null;
   /** access token 到期；null = Management API 没有下发。 */
   authExpiresAt: number | null;
   /** 最近一次 token 刷新，到期未知时用它代替。 */
@@ -77,7 +76,6 @@ export const DAY = 24 * HOUR;
 /** 鉴权 1 小时内到期视为需要关注。 */
 export const AUTH_SOON_MS = HOUR;
 /** 订阅 7 天内到期视为需要关注。 */
-export const SUBSCRIPTION_SOON_MS = 7 * DAY;
 
 export const toneFor = (remainingPct: number | null | undefined): Tone => {
   if (remainingPct === null || remainingPct === undefined) return 'none';
@@ -88,9 +86,9 @@ export const toneFor = (remainingPct: number | null | undefined): Tone => {
 
 export const clampPct = (value: number): number => Math.min(100, Math.max(0, Math.round(value)));
 
-export type TimeKind = 'window' | 'auth' | 'subscription';
+export type TimeKind = 'window' | 'auth';
 
-/** 时间列的着色：窗口重置是中性信息；鉴权/订阅临近到期才升温。 */
+/** 时间列的着色：窗口重置是中性信息；鉴权临近到期才升温。 */
 export const timeTone = (kind: TimeKind, deltaMs: number): Tone => {
   if (kind === 'window') return 'none';
   if (deltaMs <= 0) return 'low';
@@ -98,7 +96,7 @@ export const timeTone = (kind: TimeKind, deltaMs: number): Tone => {
     if (deltaMs <= AUTH_SOON_MS) return 'low';
     return deltaMs <= 6 * HOUR ? 'medium' : 'none';
   }
-  return deltaMs <= SUBSCRIPTION_SOON_MS ? 'medium' : 'none';
+  return 'none';
 };
 
 /** 5h 窗口优先；没有 5h 的账号退到周窗口。 */
@@ -106,14 +104,13 @@ export const windowEndsAt = (account: QuotaAccount): number | null =>
   account.fiveHour?.resetsAt ?? account.weekly?.resetsAt ?? null;
 
 /**
- * 窗口重置 / 登录到期 / 订阅结束里最早还没到的那个，用来给时间轴排序（最近的在前）。
+ * 窗口重置 / 登录到期里最早还没到的那个，用来给时间轴排序（最近的在前）。
  * 错误账号不看窗口；没有任何未来事件的排在有事件的后面。
  */
 export const nextEventAt = (account: QuotaAccount, now: number): number => {
   const candidates = [
     account.error ? null : windowEndsAt(account),
     account.authExpiresAt,
-    account.subscriptionEndsAt,
   ].filter((value): value is number => value !== null && value > now);
   return candidates.length === 0 ? Number.MAX_SAFE_INTEGER : Math.min(...candidates);
 };
@@ -126,9 +123,7 @@ export const accountStatus = (account: QuotaAccount, now: number): AccountStatus
   const exhausted = limits.some((limit) => limit !== null && limit.remainingPct <= LIMITED_THRESHOLD);
   if (exhausted) return 'limited';
   const authSoon = account.authExpiresAt !== null && account.authExpiresAt - now <= AUTH_SOON_MS;
-  const subscriptionSoon =
-    account.subscriptionEndsAt !== null && account.subscriptionEndsAt - now <= SUBSCRIPTION_SOON_MS;
-  if (authSoon || subscriptionSoon) return 'expiring';
+  if (authSoon) return 'expiring';
   return 'ready';
 };
 
@@ -321,14 +316,12 @@ export interface QuotaSummary {
   /** 最近一次「额度恢复」：只统计当前已耗尽账号的窗口重置。 */
   nextRecoveryAt: number | null;
   nextRecoveryAccount: QuotaAccount | null;
-  subscriptionsEndingSoon: number;
 }
 
 export const summarize = (accounts: QuotaAccount[], now: number): QuotaSummary => {
   let ready = 0;
   let limited = 0;
   let needsAttention = 0;
-  let subscriptionsEndingSoon = 0;
   let nextRecoveryAt: number | null = null;
   let nextRecoveryAccount: QuotaAccount | null = null;
 
@@ -344,13 +337,6 @@ export const summarize = (accounts: QuotaAccount[], now: number): QuotaSummary =
       }
     }
     if (status === 'error' || status === 'expiring') needsAttention += 1;
-    if (
-      account.subscriptionEndsAt !== null &&
-      account.subscriptionEndsAt - now <= SUBSCRIPTION_SOON_MS &&
-      !account.disabled
-    ) {
-      subscriptionsEndingSoon += 1;
-    }
   });
 
   return {
@@ -360,7 +346,6 @@ export const summarize = (accounts: QuotaAccount[], now: number): QuotaSummary =
     needsAttention,
     nextRecoveryAt,
     nextRecoveryAccount,
-    subscriptionsEndingSoon,
   };
 };
 
