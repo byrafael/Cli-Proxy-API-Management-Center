@@ -102,10 +102,10 @@ const readPlan = (provider: QuotaProviderType, quota: Record<string, unknown>): 
     const raw = text(quota.planType);
     return raw ? prettifyPlan(raw) : null;
   }
-  if (provider === 'antigravity') {
+  if (provider === 'antigravity' || provider === 'plugin') {
     const subscription = quota.subscription as { tierName?: unknown; plan?: unknown } | null;
     const raw = text(subscription?.tierName) ?? text(subscription?.plan);
-    return raw ? prettifyPlan(raw) : null;
+    return raw ? prettifyPlan(raw).replace(/^(Antigravity|Gemini)\s+/i, '') : null;
   }
   if (provider === 'devin') {
     const raw = text(quota.plan);
@@ -166,7 +166,7 @@ const collectWindows = (
     return keep(((quota.windows as WindowLike[] | undefined) ?? []).map(fromWindowLike));
   }
 
-  if (provider === 'antigravity') {
+  if (provider === 'antigravity' || provider === 'plugin') {
     const buckets = (
       (quota.groups as { buckets?: (WindowLike & { remainingFraction?: unknown })[] }[]) ?? []
     ).flatMap((group) => group.buckets ?? []);

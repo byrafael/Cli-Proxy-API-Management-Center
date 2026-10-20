@@ -47,8 +47,8 @@
   display: inline-flex;
   flex-direction: column;
   gap: 6px;
-  min-width: 96px;
-  max-width: 100%;
+  min-width: 0;
+  max-width: 176px;
 }
 
 .limitPct {
@@ -128,7 +128,7 @@
 
 .plan {
   display: inline-block;
-  max-width: 128px;
+  max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
   line-height: 20px;

@@ -1,16 +1,18 @@
 import { describe, expect, test } from 'bun:test';
 import { buildFixtureAccounts } from './fixtures/quotaHomeAccounts';
-import { classifyLimits, planTierFor, readTimestamp } from '../src/features/quota/home/fromQuota';
+import { accountNameFor, classifyLimits, planTierFor, readTimestamp } from '../src/features/quota/home/fromQuota';
 import {
   DAY,
   HOUR,
   MINUTE,
   accountStatus,
+  accountTitle,
   filterAccounts,
   formatCountdown,
   groupAccounts,
   maskEmail,
   nextEventAt,
+  redactEmailsIn,
   summarize,
   timeTone,
   toneFor,
@@ -143,6 +145,21 @@ describe('quota home provider mapping', () => {
     expect(limits.weekly?.remainingPct).toBe(60);
   });
 
+  test('plugin quotas classify like antigravity', () => {
+    const limits = classifyLimits('plugin', {
+      groups: [
+        {
+          buckets: [
+            { id: 'a', remainingFraction: 0.5, resetAtMs: NOW + HOUR, periodHours: 5 },
+            { id: 'b', remainingFraction: 0.7, resetAtMs: NOW + 3 * DAY, periodHours: 168 },
+          ],
+        },
+      ],
+    });
+    expect(limits.fiveHour?.remainingPct).toBe(50);
+    expect(limits.weekly?.remainingPct).toBe(70);
+  });
+
   test('xAI only exposes a weekly window; a monthly billing cycle is not a limit', () => {
     const weekly = classifyLimits('xai', {
       billing: { periodType: 'weekly', usagePercent: 26, resetAtMs: NOW + DAY },
@@ -168,6 +185,38 @@ describe('quota home provider mapping', () => {
     expect(readTimestamp('2026-10-20T12:00:00Z')).toBe(NOW);
     expect(readTimestamp(null)).toBeNull();
     expect(readTimestamp(0)).toBeNull();
+  });
+});
+
+describe('quota home email redaction', () => {
+  const base = byId('claude-maya-max');
+
+  test('redacts every email inside free text', () => {
+    expect(redactEmailsIn('maya@lumen.studio')).toBe(maskEmail('maya@lumen.studio'));
+    expect(redactEmailsIn('Maya <maya@lumen.studio> via jon@kestrel.io')).not.toContain('@lumen.studio');
+    expect(redactEmailsIn('no addresses here')).toBe('no addresses here');
+    expect(redactEmailsIn('429 too many requests for jon@kestrel.io, retry later')).not.toContain('kestrel.io');
+  });
+
+  test('a name that is the email never leaks when redacted', () => {
+    const email = 'maya@lumen.studio';
+    const account = { ...base, name: email, email };
+    expect(accountTitle(account, true).primary).not.toContain('lumen.studio');
+    expect(accountTitle(account, true).primary).toBe(maskEmail(email));
+    expect(accountTitle(account, false).primary).toBe(email);
+    // The email must not be repeated as a secondary line.
+    expect(accountTitle(account, false).secondary).not.toBe(email);
+  });
+
+  test('a named account keeps its name and redacts only the email line', () => {
+    const account = { ...base, name: 'Maya · daily driver', email: 'maya@lumen.studio' };
+    const redacted = accountTitle(account, true);
+    expect(redacted.primary).toBe('Maya · daily driver');
+    expect(redacted.secondary).toBe(maskEmail('maya@lumen.studio'));
+  });
+
+  test('derives the display name from the file name without .json', () => {
+    expect(accountNameFor({ name: 'maya-claude.json' } as never)).toBe('maya-claude');
   });
 });
 
