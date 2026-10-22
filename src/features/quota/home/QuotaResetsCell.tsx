@@ -5,7 +5,7 @@
  * 复用旧卡片的 useClaudeResetGrants（含二次确认、重试窗口等保护），不重新实现。
  */
 
-import { useMemo } from 'react';
+import { useMemo, type ReactNode } from 'react';
 import { IconRefreshCw } from '@/components/ui/icons';
 import { parseIsoToMs } from '@/utils/quota';
 import { useClaudeResetGrants } from '../providers/claude/ClaudeResetGrants';
@@ -105,13 +105,20 @@ export function QuotaResetsCell({
       <IconRefreshCw size={14} className={loading ? styles.spinning : undefined} />
     </button>
   );
+  const renderTop = (value: ReactNode, action?: ReactNode) => (
+    <div className={styles.top}>
+      <span className={styles.label}>{t(`${NS}.col_resets`)}</span>
+      <div className={styles.valueActions}>
+        {value}
+        {action}
+        {refreshAction}
+      </div>
+    </div>
+  );
   if (!loaded) {
     return (
       <div className={styles.cell}>
-        <div className={styles.top}>
-          <span className={styles.empty}>{loading ? '…' : '—'}</span>
-          {refreshAction}
-        </div>
+        {renderTop(<span className={styles.empty}>{loading ? '…' : '—'}</span>)}
       </div>
     );
   }
@@ -126,35 +133,20 @@ export function QuotaResetsCell({
   const count = entry.type === 'codex' ? (codexCount ?? 0) : (claude.count ?? null);
 
   if (!supported) {
-    return (
-      <div className={styles.cell}>
-        <div className={styles.top}>
-          <span className={styles.empty}>—</span>
-          {refreshAction}
-        </div>
-      </div>
-    );
+    return <div className={styles.cell}>{renderTop(<span className={styles.empty}>—</span>)}</div>;
   }
 
   if (entry.type === 'claude' && !claudeLoaded && !claude.message) {
-    return (
-      <div className={styles.cell}>
-        <div className={styles.top}>
-          <span className={styles.empty}>…</span>
-          {refreshAction}
-        </div>
-      </div>
-    );
+    return <div className={styles.cell}>{renderTop(<span className={styles.empty}>…</span>)}</div>;
   }
   if (count === null) {
     return (
       <div className={styles.cell}>
-        <div className={styles.top}>
+        {renderTop(
           <span className={styles.message} role="status">
             {claude.message ? t(`claude_reset.${claude.message}`) : '—'}
           </span>
-          {refreshAction}
-        </div>
+        )}
       </div>
     );
   }
@@ -185,14 +177,14 @@ export function QuotaResetsCell({
 
   return (
     <div className={styles.cell}>
-      <div className={styles.top}>
+      {renderTop(
         <span
           className={`${styles.count} ${count === 0 ? styles.none : ''} ${tone === 'none' ? '' : styles.warm} ${toneClassFor(tone)}`}
           title={detail || undefined}
         >
           {count === 0 ? t(`${NS}.resets_none`) : t(`${NS}.resets_count`, { count })}
-        </span>
-        {showButton && (
+        </span>,
+        showButton && (
           <button
             type="button"
             className={styles.use}
@@ -209,9 +201,8 @@ export function QuotaResetsCell({
           >
             {busy ? '…' : t(`${NS}.${retrying ? 'resets_retry' : 'resets_use'}`)}
           </button>
-        )}
-        {refreshAction}
-      </div>
+        )
+      )}
       {nextExpiry !== null && count > 0 && (
         <span className={styles.sub} title={format.absolute(nextExpiry)}>
           {t(`${NS}.resets_next`, { time: format.countdown(nextExpiry - now) })}

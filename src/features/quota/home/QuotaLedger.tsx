@@ -152,14 +152,29 @@ function LedgerRow({
         </div>
       </td>
       <td>
-        <LimitBar limit={account.weekly} now={now} showReset fullWidth emptyLabel={placeholder} />
+        <LimitBar
+          limit={account.weekly}
+          label={t(`${NS}.col_weekly`)}
+          now={now}
+          showReset
+          fullWidth
+          emptyLabel={placeholder}
+        />
       </td>
       <td>
-        <LimitBar limit={account.fiveHour} now={now} showReset fullWidth emptyLabel={placeholder} />
+        <LimitBar
+          limit={account.fiveHour}
+          label={t(`${NS}.col_five_hour`)}
+          now={now}
+          showReset
+          fullWidth
+          emptyLabel={placeholder}
+        />
       </td>
       <td>
         <LimitBar
           limit={account.fable}
+          label={t(`${NS}.col_fable`)}
           now={now}
           showReset
           fullWidth
@@ -196,15 +211,6 @@ export function QuotaLedger({
             <col key={COLUMNS[index]} style={{ width: `${width}%` }} />
           ))}
         </colgroup>
-        <thead>
-          <tr>
-            {COLUMNS.map((column) => (
-              <th key={column} scope="col">
-                {t(`${NS}.${column}`)}
-              </th>
-            ))}
-          </tr>
-        </thead>
         {groups.map((group) => {
           const isCollapsed = collapsed[group.key] === true;
           return (
