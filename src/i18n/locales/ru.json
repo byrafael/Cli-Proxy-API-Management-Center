@@ -1659,6 +1659,7 @@
       "col_window": "Сброс окна",
       "col_five_hour": "Лимит на 5 часов",
       "col_weekly": "Лимит на 7 дней",
+      "period_week": "7 дней",
       "col_fable": "Fable 5 на 7 дней",
       "not_on_plan": "Не входит в тариф",
       "group_accounts_one": "{{count}} аккаунт",

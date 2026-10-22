@@ -1656,6 +1656,7 @@
       "col_window": "창 초기화",
       "col_five_hour": "5시간 한도",
       "col_weekly": "7일 한도",
+      "period_week": "7일",
       "col_fable": "7일 Fable 5",
       "not_on_plan": "플랜에 없음",
       "group_accounts_one": "계정 {{count}}개",

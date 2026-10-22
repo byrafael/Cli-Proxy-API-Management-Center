@@ -96,15 +96,14 @@ export function LimitBar({
   }
   const pct = clampPct(limit.remainingPct);
   const tone = toneFor(pct);
+  const displayLabel = label ?? limit.label;
   return (
     <span
       className={`${styles.limit} ${fullWidth ? styles.limitWide : ''} ${toneClassFor(tone)}`}
       style={{ width }}
     >
       <span className={styles.limitHeading}>
-        {(limit.label || label) && (
-          <span className={styles.limitLabel}>{limit.label || label}</span>
-        )}
+        {displayLabel && <span className={styles.limitLabel}>{displayLabel}</span>}
         <span className={styles.limitPct}>{pct}%</span>
       </span>
       <span className={styles.track} aria-hidden="true">
