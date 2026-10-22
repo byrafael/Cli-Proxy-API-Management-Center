@@ -1679,9 +1679,9 @@
       "col_plan": "方案",
       "col_auth": "驗證",
       "col_window": "視窗重置",
-      "col_five_hour": "5 小時",
-      "col_weekly": "每週",
-      "col_fable": "Fable 5",
+      "col_five_hour": "5 小時額度",
+      "col_weekly": "7 天額度",
+      "col_fable": "7 天 Fable 5",
       "not_on_plan": "方案不含",
       "group_accounts_other": "{{count}} 個帳號",
       "group_ready": "{{count}} 個可用",
@@ -1719,15 +1719,16 @@
       "rename_label": "顯示名稱",
       "rename_saved": "顯示名稱已儲存",
       "rename_failed": "無法儲存顯示名稱",
-      "col_resets": "手動重置",
+      "col_resets": "剩餘重置次數",
       "resets_none": "無",
       "resets_count_one": "{{count}} 次重置",
       "resets_count_other": "{{count}} 次重置",
       "resets_next": "最近 {{time}} 後到期",
-      "resets_use": "使用",
+      "resets_use": "重設額度",
       "resets_retry": "重試",
       "resets_detail_item": "{{label}} · {{date}} 到期",
-      "resets_when_limited": "Claude 只允許在帳號被限額時使用手動重置"
+      "resets_when_limited": "Claude 只允許在帳號被限額時使用手動重置",
+      "token_refreshed": "Token 刷新時間"
     }
   },
   "plugin_management": {

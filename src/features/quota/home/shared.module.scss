@@ -51,7 +51,13 @@
   max-width: 176px;
 }
 
+.limitWide {
+  max-width: none;
+  width: 100%;
+}
+
 .limitPct {
+  align-self: flex-end;
   font-size: 15px;
   font-weight: 600;
   letter-spacing: -0.01em;
@@ -63,7 +69,9 @@
   font-size: 12px;
   color: var(--text-tertiary);
   font-variant-numeric: tabular-nums;
-  white-space: nowrap;
+  line-height: 1.35;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .track {

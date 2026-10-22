@@ -1653,9 +1653,9 @@
       "col_plan": "Plan",
       "col_auth": "Auth",
       "col_window": "Window resets",
-      "col_five_hour": "5-hour",
-      "col_weekly": "Weekly",
-      "col_fable": "Fable 5",
+      "col_five_hour": "5-hour limit",
+      "col_weekly": "7-day limit",
+      "col_fable": "7-day Fable 5",
       "not_on_plan": "Not on plan",
       "group_accounts_one": "{{count}} account",
       "group_accounts_other": "{{count}} accounts",
@@ -1694,15 +1694,16 @@
       "rename_label": "Display name",
       "rename_saved": "Display name saved",
       "rename_failed": "Could not save the display name",
-      "col_resets": "Manual resets",
+      "col_resets": "Resets remaining",
       "resets_none": "None",
       "resets_count_one": "{{count}} reset",
       "resets_count_other": "{{count}} resets",
       "resets_next": "next expires in {{time}}",
-      "resets_use": "Use",
+      "resets_use": "Reset limits",
       "resets_retry": "Retry",
       "resets_detail_item": "{{label}} · expires {{date}}",
-      "resets_when_limited": "Claude only allows a manual reset while the account is limited"
+      "resets_when_limited": "Claude only allows a manual reset while the account is limited",
+      "token_refreshed": "Token refreshed"
     }
   },
   "plugin_management": {
