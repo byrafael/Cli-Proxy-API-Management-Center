@@ -1708,7 +1708,7 @@
       "resets_retry": "Повтор",
       "resets_detail_item": "{{label}} · истекает {{date}}",
       "resets_when_limited": "Claude разрешает ручной сброс, только когда аккаунт достиг лимита",
-      "last_seen": "Последняя активность"
+      "token_refreshed": "Обновление токена"
     }
   },
   "plugin_management": {

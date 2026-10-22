@@ -124,15 +124,16 @@ function LedgerRow({
               {PROVIDER_LABEL[account.provider]}
               {title.secondary !== PROVIDER_LABEL[account.provider] && ` · ${title.secondary}`}
             </span>
-            {account.error ? (
+            {account.error && (
               <span className={styles.errorText} title={errorText ?? undefined}>
                 {errorText}
               </span>
-            ) : account.lastRefreshAt !== null ? (
-              <span className={styles.lastSeen}>
-                {t(`${NS}.last_seen`)} {absolute(account.lastRefreshAt)}
+            )}
+            {account.lastRefreshAt !== null && (
+              <span className={styles.lastRefresh}>
+                {t(`${NS}.token_refreshed`)} {absolute(account.lastRefreshAt)}
               </span>
-            ) : null}
+            )}
           </div>
           {!editing && (
             <div className={styles.actions}>

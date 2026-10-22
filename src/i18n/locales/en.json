@@ -1703,7 +1703,7 @@
       "resets_retry": "Retry",
       "resets_detail_item": "{{label}} · expires {{date}}",
       "resets_when_limited": "Claude only allows a manual reset while the account is limited",
-      "last_seen": "Last seen"
+      "token_refreshed": "Token refreshed"
     }
   },
   "plugin_management": {

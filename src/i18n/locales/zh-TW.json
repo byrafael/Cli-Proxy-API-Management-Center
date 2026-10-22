@@ -1728,7 +1728,7 @@
       "resets_retry": "重試",
       "resets_detail_item": "{{label}} · {{date}} 到期",
       "resets_when_limited": "Claude 只允許在帳號被限額時使用手動重置",
-      "last_seen": "上次使用"
+      "token_refreshed": "Token 刷新時間"
     }
   },
   "plugin_management": {

@@ -1700,7 +1700,7 @@
       "resets_retry": "重试",
       "resets_detail_item": "{{label}} · {{date}} 到期",
       "resets_when_limited": "Claude 只允许在账号被限额时使用手动重置",
-      "last_seen": "最后使用"
+      "token_refreshed": "令牌刷新时间"
     }
   },
   "plugin_management": {

@@ -1659,7 +1659,7 @@
       "resets_retry": "Thử lại",
       "resets_detail_item": "{{label}} · hết hạn {{date}}",
       "resets_when_limited": "Claude chỉ cho phép đặt lại thủ công khi tài khoản đã hết hạn mức",
-      "last_seen": "Hoạt động gần nhất"
+      "token_refreshed": "Token được làm mới"
     }
   },
   "plugin_management": {

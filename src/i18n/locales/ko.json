@@ -1703,7 +1703,7 @@
       "resets_retry": "재시도",
       "resets_detail_item": "{{label}} · {{date}} 만료",
       "resets_when_limited": "Claude는 계정이 한도에 도달했을 때만 수동 초기화를 허용합니다",
-      "last_seen": "마지막 사용"
+      "token_refreshed": "토큰 갱신"
     }
   },
   "plugin_management": {
