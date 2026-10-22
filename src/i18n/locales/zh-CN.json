@@ -1654,6 +1654,7 @@
       "col_window": "窗口重置",
       "col_five_hour": "5 小时限额",
       "col_weekly": "7 天限额",
+      "period_week": "7 天",
       "col_fable": "7 天 Fable 5",
       "not_on_plan": "套餐不含",
       "group_accounts_other": "{{count}} 个账号",

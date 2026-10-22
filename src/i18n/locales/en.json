@@ -1656,6 +1656,7 @@
       "col_window": "Window resets",
       "col_five_hour": "5-hour limit",
       "col_weekly": "7-day limit",
+      "period_week": "7-day",
       "col_fable": "7-day Fable 5",
       "not_on_plan": "Not on plan",
       "group_accounts_one": "{{count}} account",

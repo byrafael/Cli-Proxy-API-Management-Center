@@ -252,6 +252,7 @@ const toLimit = (window: NormalizedWindow | undefined): QuotaLimit | null =>
   window
     ? {
         ...(window.label ? { label: window.label } : {}),
+        periodHours: window.periodHours,
         remainingPct: window.remaining,
         resetsAt: window.resetsAt,
       }
