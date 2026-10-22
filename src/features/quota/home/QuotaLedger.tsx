@@ -57,7 +57,7 @@ function LedgerRow({
   const weeklyLabel =
     account.weekly?.periodHours === 168 &&
     account.weekly.label === t('codex_quota.secondary_window')
-      ? `${t(`${NS}.period_week`)} • ${t(`${NS}.windows_mode_weekly`)}`
+      ? `${t(`${NS}.period_week`)} • ${t('quota_management.windows_mode_weekly')}`
       : account.weekly?.label;
   const title = accountTitle(account, redact);
   const errorText = account.error && redact ? redactEmailsIn(account.error) : account.error;
