@@ -110,9 +110,10 @@ export const buildClaudeQuotaWindows = (
   if (fableLimit) {
     const usedPercent = normalizeNumberValue(fableLimit.percent);
     if (usedPercent !== null) {
+      const modelName = normalizeStringValue(fableLimit.scope?.model?.display_name);
       windows.push({
         id: 'seven-day-fable',
-        label: t('claude_quota.seven_day_fable'),
+        label: modelName ? t('claude_quota.seven_day_model', { model: modelName }) : '',
         labelKey: 'claude_quota.seven_day_fable',
         usedPercent,
         resetLabel: formatQuotaResetTime(fableLimit.resets_at ?? undefined),

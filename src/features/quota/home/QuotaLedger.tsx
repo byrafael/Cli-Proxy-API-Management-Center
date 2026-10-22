@@ -154,7 +154,6 @@ function LedgerRow({
       <td headers="quota-col-weekly">
         <LimitBar
           limit={account.weekly}
-          label={t(`${NS}.col_weekly`)}
           now={now}
           showReset
           fullWidth
@@ -164,7 +163,6 @@ function LedgerRow({
       <td headers="quota-col-five_hour">
         <LimitBar
           limit={account.fiveHour}
-          label={t(`${NS}.col_five_hour`)}
           now={now}
           showReset
           fullWidth
@@ -174,7 +172,6 @@ function LedgerRow({
       <td headers="quota-col-fable">
         <LimitBar
           limit={account.fable}
-          label={t(`${NS}.col_fable`)}
           now={now}
           showReset
           fullWidth
