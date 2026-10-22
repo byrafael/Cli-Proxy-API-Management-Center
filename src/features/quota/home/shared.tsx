@@ -71,6 +71,7 @@ export function ProviderMark({
 
 export function LimitBar({
   limit,
+  label,
   now,
   showReset = false,
   width,
@@ -78,6 +79,7 @@ export function LimitBar({
   emptyLabel = '—',
 }: {
   limit: QuotaLimit | null;
+  label: string;
   now: number;
   showReset?: boolean;
   width?: number | string;
@@ -86,7 +88,14 @@ export function LimitBar({
 }) {
   const format = useQuotaFormat();
   if (limit === null) {
-    return <span className={styles.empty}>{emptyLabel}</span>;
+    return (
+      <span className={`${styles.limit} ${fullWidth ? styles.limitWide : ''}`} style={{ width }}>
+        <span className={styles.limitHeading}>
+          <span className={styles.limitLabel}>{label}</span>
+          <span className={styles.empty}>{emptyLabel}</span>
+        </span>
+      </span>
+    );
   }
   const pct = clampPct(limit.remainingPct);
   const tone = toneFor(pct);
@@ -95,7 +104,10 @@ export function LimitBar({
       className={`${styles.limit} ${fullWidth ? styles.limitWide : ''} ${toneClassFor(tone)}`}
       style={{ width }}
     >
-      <span className={styles.limitPct}>{pct}%</span>
+      <span className={styles.limitHeading}>
+        <span className={styles.limitLabel}>{label}</span>
+        <span className={styles.limitPct}>{pct}%</span>
+      </span>
       <span className={styles.track} aria-hidden="true">
         <span className={styles.fill} style={{ width: `${pct}%` }} />
       </span>

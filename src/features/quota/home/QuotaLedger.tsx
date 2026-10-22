@@ -95,7 +95,7 @@ function LedgerRow({
 
   return (
     <tr className={`${styles.row} ${account.disabled ? styles.rowDimmed : ''}`}>
-      <td className={styles.identity}>
+      <td className={styles.identity} headers="quota-col-account">
         <div className={styles.identityInner}>
           <ProviderMark provider={account.provider} theme={theme} size={38} />
           <div className={styles.identityText}>
@@ -151,15 +151,30 @@ function LedgerRow({
           )}
         </div>
       </td>
-      <td>
-        <LimitBar limit={account.weekly} now={now} showReset fullWidth emptyLabel={placeholder} />
+      <td headers="quota-col-weekly">
+        <LimitBar
+          limit={account.weekly}
+          label={t(`${NS}.col_weekly`)}
+          now={now}
+          showReset
+          fullWidth
+          emptyLabel={placeholder}
+        />
       </td>
-      <td>
-        <LimitBar limit={account.fiveHour} now={now} showReset fullWidth emptyLabel={placeholder} />
+      <td headers="quota-col-five_hour">
+        <LimitBar
+          limit={account.fiveHour}
+          label={t(`${NS}.col_five_hour`)}
+          now={now}
+          showReset
+          fullWidth
+          emptyLabel={placeholder}
+        />
       </td>
-      <td>
+      <td headers="quota-col-fable">
         <LimitBar
           limit={account.fable}
+          label={t(`${NS}.col_fable`)}
           now={now}
           showReset
           fullWidth
@@ -168,7 +183,7 @@ function LedgerRow({
           }
         />
       </td>
-      <td>{renderResets(account)}</td>
+      <td headers="quota-col-resets">{renderResets(account)}</td>
     </tr>
   );
 }
@@ -196,10 +211,10 @@ export function QuotaLedger({
             <col key={COLUMNS[index]} style={{ width: `${width}%` }} />
           ))}
         </colgroup>
-        <thead>
+        <thead className={styles.visuallyHiddenHeader}>
           <tr>
             {COLUMNS.map((column) => (
-              <th key={column} scope="col">
+              <th key={column} id={`quota-col-${column}`} scope="col">
                 {t(`${NS}.${column}`)}
               </th>
             ))}
