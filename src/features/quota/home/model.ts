@@ -26,6 +26,8 @@ export type PlanTier = 'free' | 'pro' | 'max' | 'team' | 'unknown';
 export const PLAN_TIER_ORDER: readonly PlanTier[] = ['max', 'team', 'pro', 'free', 'unknown'];
 
 export interface QuotaLimit {
+  /** Display name supplied by the provider quota response, when available. */
+  label?: string;
   /** 剩余百分比，0–100。 */
   remainingPct: number;
   /** 窗口重置的绝对时刻（epoch ms）。 */

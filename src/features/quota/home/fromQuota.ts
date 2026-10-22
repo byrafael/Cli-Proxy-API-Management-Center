@@ -23,6 +23,7 @@ const WEEKLY_WINDOW_MAX_HOURS = 24 * 8;
 
 interface NormalizedWindow {
   id: string;
+  label: string | null;
   /** 剩余百分比 0–100。 */
   remaining: number;
   resetsAt: number;
@@ -125,6 +126,8 @@ const readPlan = (provider: QuotaProviderType, quota: Record<string, unknown>): 
 
 interface WindowLike {
   id?: unknown;
+  label?: unknown;
+  displayName?: unknown;
   usedPercent?: unknown;
   remainingPercent?: unknown;
   resetAtMs?: unknown;
@@ -140,6 +143,10 @@ const fromWindowLike = (window: WindowLike, index: number): NormalizedWindow | n
   if (remaining === null) return null;
   return {
     id: typeof window.id === 'string' ? window.id : `window-${index}`,
+    label:
+      (typeof window.label === 'string' && window.label.trim()) ||
+      (typeof window.displayName === 'string' && window.displayName.trim()) ||
+      null,
     remaining: clampPct(remaining),
     resetsAt,
     periodHours: isFiniteNumber(window.periodHours) ? window.periodHours : null,
@@ -242,7 +249,13 @@ const collectWindows = (
 };
 
 const toLimit = (window: NormalizedWindow | undefined): QuotaLimit | null =>
-  window ? { remainingPct: window.remaining, resetsAt: window.resetsAt } : null;
+  window
+    ? {
+        ...(window.label ? { label: window.label } : {}),
+        remainingPct: window.remaining,
+        resetsAt: window.resetsAt,
+      }
+    : null;
 
 const mostConstrained = (windows: NormalizedWindow[]): NormalizedWindow | undefined =>
   windows.reduce<NormalizedWindow | undefined>(

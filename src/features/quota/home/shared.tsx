@@ -79,7 +79,7 @@ export function LimitBar({
   emptyLabel = '—',
 }: {
   limit: QuotaLimit | null;
-  label: string;
+  label?: string;
   now: number;
   showReset?: boolean;
   width?: number | string;
@@ -90,10 +90,7 @@ export function LimitBar({
   if (limit === null) {
     return (
       <span className={`${styles.limit} ${fullWidth ? styles.limitWide : ''}`} style={{ width }}>
-        <span className={styles.limitHeading}>
-          <span className={styles.limitLabel}>{label}</span>
-          <span className={styles.empty}>{emptyLabel}</span>
-        </span>
+        <span className={styles.empty}>{emptyLabel}</span>
       </span>
     );
   }
@@ -105,7 +102,9 @@ export function LimitBar({
       style={{ width }}
     >
       <span className={styles.limitHeading}>
-        <span className={styles.limitLabel}>{label}</span>
+        {(limit.label || label) && (
+          <span className={styles.limitLabel}>{limit.label || label}</span>
+        )}
         <span className={styles.limitPct}>{pct}%</span>
       </span>
       <span className={styles.track} aria-hidden="true">
