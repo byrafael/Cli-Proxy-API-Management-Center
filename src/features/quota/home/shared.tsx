@@ -74,12 +74,14 @@ export function LimitBar({
   now,
   showReset = false,
   width,
+  fullWidth = false,
   emptyLabel = '—',
 }: {
   limit: QuotaLimit | null;
   now: number;
   showReset?: boolean;
   width?: number | string;
+  fullWidth?: boolean;
   emptyLabel?: string;
 }) {
   const format = useQuotaFormat();
@@ -89,7 +91,10 @@ export function LimitBar({
   const pct = clampPct(limit.remainingPct);
   const tone = toneFor(pct);
   return (
-    <span className={`${styles.limit} ${toneClassFor(tone)}`} style={{ width }}>
+    <span
+      className={`${styles.limit} ${fullWidth ? styles.limitWide : ''} ${toneClassFor(tone)}`}
+      style={{ width }}
+    >
       <span className={styles.limitPct}>{pct}%</span>
       <span className={styles.track} aria-hidden="true">
         <span className={styles.fill} style={{ width: `${pct}%` }} />
@@ -99,6 +104,8 @@ export function LimitBar({
           {format.t('quota_management.home.resets_in', {
             time: format.countdown(limit.resetsAt - now),
           })}
+          {' · '}
+          {format.absolute(limit.resetsAt)}
         </span>
       )}
     </span>
@@ -107,22 +114,11 @@ export function LimitBar({
 
 /* ---------- 时间文字 ---------- */
 
-export function TimeText({
-  ts,
-  now,
-  kind,
-}: {
-  ts: number | null;
-  now: number;
-  kind: TimeKind;
-}) {
+export function TimeText({ ts, now, kind }: { ts: number | null; now: number; kind: TimeKind }) {
   const format = useQuotaFormat();
   if (ts === null) {
     return (
-      <span
-        className={styles.empty}
-        title={format.t('quota_management.home.not_provided')}
-      >
+      <span className={styles.empty} title={format.t('quota_management.home.not_provided')}>
         —
       </span>
     );

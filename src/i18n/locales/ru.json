@@ -1656,9 +1656,9 @@
       "col_plan": "Тариф",
       "col_auth": "Авторизация",
       "col_window": "Сброс окна",
-      "col_five_hour": "5 часов",
-      "col_weekly": "Неделя",
-      "col_fable": "Fable 5",
+      "col_five_hour": "Лимит на 5 часов",
+      "col_weekly": "Лимит на 7 дней",
+      "col_fable": "Fable 5 на 7 дней",
       "not_on_plan": "Не входит в тариф",
       "group_accounts_one": "{{count}} аккаунт",
       "group_accounts_few": "{{count}} аккаунта",
@@ -1699,15 +1699,16 @@
       "rename_label": "Отображаемое имя",
       "rename_saved": "Отображаемое имя сохранено",
       "rename_failed": "Не удалось сохранить отображаемое имя",
-      "col_resets": "Ручные сбросы",
+      "col_resets": "Осталось сбросов",
       "resets_none": "Нет",
       "resets_count_one": "{{count}} сброс",
       "resets_count_other": "{{count}} сбросов",
       "resets_next": "ближайший истекает через {{time}}",
-      "resets_use": "Исп.",
+      "resets_use": "Сбросить лимиты",
       "resets_retry": "Повтор",
       "resets_detail_item": "{{label}} · истекает {{date}}",
-      "resets_when_limited": "Claude разрешает ручной сброс, только когда аккаунт достиг лимита"
+      "resets_when_limited": "Claude разрешает ручной сброс, только когда аккаунт достиг лимита",
+      "last_seen": "Последняя активность"
     }
   },
   "plugin_management": {

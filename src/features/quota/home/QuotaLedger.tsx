@@ -1,29 +1,20 @@
 /**
- * 额度账本：一行一个凭证，七列信息，按提供商 / 邮箱 / 套餐 / 状态分组，分组头可折叠。
+ * 额度账本：一行一个凭证，五列信息，按提供商 / 邮箱 / 套餐 / 状态分组，分组头可折叠。
  *
  * 每行右侧悬停时出现「刷新额度」，Codex 在有可用重置积分时多一个「重置」——
  * 保留旧额度卡片上的两个动作，只是不再占一整行。
  */
 
 import { useMemo, useState, type KeyboardEvent, type ReactNode } from 'react';
-import { IconChevronDown, IconPencil, IconRefreshCw } from '@/components/ui/icons';
+import { IconChevronDown, IconPencil } from '@/components/ui/icons';
 import {
   PROVIDER_LABEL,
   accountTitle,
   groupAccounts,
   redactEmailsIn,
-  windowEndsAt,
   type QuotaAccount,
 } from './model';
-import {
-  LimitBar,
-  PlanChip,
-  ProviderMark,
-  RefreshedText,
-  StatusDot,
-  TimeText,
-  type QuotaViewProps,
-} from './shared';
+import { LimitBar, ProviderMark, StatusDot, type QuotaViewProps } from './shared';
 import { useQuotaFormat } from './useQuotaFormat';
 import styles from './QuotaLedger.module.scss';
 
@@ -32,7 +23,6 @@ const NS = 'quota_management.home';
 export interface QuotaRowActions {
   /** 连接正常且列表已落定。 */
   canAct: boolean;
-  onRefresh: (id: string) => void;
   /** 当前的自定义显示名（备注）；没有则为空串。 */
   noteFor: (id: string) => string;
   /** 保存自定义显示名；空串清除。失败时 reject（页面已提示）。 */
@@ -46,18 +36,9 @@ type LedgerProps = QuotaViewProps & {
 };
 
 /** 固定列宽（占表宽百分比，合计 100）：内容再长也不会挤占别的列。 */
-const COLUMN_WIDTHS = [22, 9, 14, 9, 10, 10.5, 10.5, 15] as const;
+const COLUMN_WIDTHS = [26, 18, 18, 18, 20] as const;
 
-const COLUMNS = [
-  'col_account',
-  'col_plan',
-  'col_auth',
-  'col_window',
-  'col_five_hour',
-  'col_weekly',
-  'col_fable',
-  'col_resets',
-] as const;
+const COLUMNS = ['col_account', 'col_weekly', 'col_five_hour', 'col_fable', 'col_resets'] as const;
 
 function LedgerRow({
   account,
@@ -70,9 +51,8 @@ function LedgerRow({
   LedgerProps,
   'now' | 'redact' | 'theme' | 'actions' | 'renderResets'
 >) {
-  const { t } = useQuotaFormat();
+  const { t, absolute } = useQuotaFormat();
   const loaded = !account.pending && !account.error && !account.disabled;
-  const windowEnds = loaded ? windowEndsAt(account) : null;
   const placeholder = account.pending ? '…' : '—';
   const title = accountTitle(account, redact);
   const errorText = account.error && redact ? redactEmailsIn(account.error) : account.error;
@@ -140,7 +120,19 @@ function LedgerRow({
                 </span>
               )}
             </span>
-            <span className={styles.email}>{title.secondary}</span>
+            <span className={styles.email}>
+              {PROVIDER_LABEL[account.provider]}
+              {title.secondary !== PROVIDER_LABEL[account.provider] && ` · ${title.secondary}`}
+            </span>
+            {account.error ? (
+              <span className={styles.errorText} title={errorText ?? undefined}>
+                {errorText}
+              </span>
+            ) : account.lastRefreshAt !== null ? (
+              <span className={styles.lastSeen}>
+                {t(`${NS}.last_seen`)} {absolute(account.lastRefreshAt)}
+              </span>
+            ) : null}
           </div>
           {!editing && (
             <div className={styles.actions}>
@@ -154,64 +146,22 @@ function LedgerRow({
               >
                 <IconPencil size={14} />
               </button>
-              {!account.disabled && (
-                <>
-                  <button
-                    type="button"
-                    className={styles.actionIcon}
-                    onClick={() => actions.onRefresh(account.id)}
-                    disabled={!actions.canAct}
-                    aria-label={t('auth_files.quota_refresh_single')}
-                    title={t('auth_files.quota_refresh_hint')}
-                  >
-                    <IconRefreshCw
-                      size={14}
-                      className={account.pending ? styles.spinning : undefined}
-                    />
-                  </button>
-                </>
-              )}
             </div>
           )}
         </div>
       </td>
       <td>
-        <PlanChip plan={account.plan} />
+        <LimitBar limit={account.weekly} now={now} showReset fullWidth emptyLabel={placeholder} />
       </td>
       <td>
-        {account.error ? (
-          <span className={styles.errorText} title={errorText ?? undefined}>
-            {errorText}
-          </span>
-        ) : account.authExpiresAt !== null ? (
-          <TimeText ts={account.authExpiresAt} now={now} kind="auth" />
-        ) : account.lastRefreshAt !== null ? (
-          <RefreshedText ts={account.lastRefreshAt} now={now} />
-        ) : (
-          <TimeText ts={null} now={now} kind="auth" />
-        )}
-      </td>
-      <td>
-        <TimeText ts={windowEnds} now={now} kind="window" />
-      </td>
-      <td>
-        <LimitBar limit={account.fiveHour} now={now} width="100%" emptyLabel={placeholder} />
-      </td>
-      <td>
-        <LimitBar
-          limit={account.weekly}
-          now={now}
-          showReset
-          width="100%"
-          emptyLabel={placeholder}
-        />
+        <LimitBar limit={account.fiveHour} now={now} showReset fullWidth emptyLabel={placeholder} />
       </td>
       <td>
         <LimitBar
           limit={account.fable}
           now={now}
           showReset
-          width="100%"
+          fullWidth
           emptyLabel={
             account.provider === 'claude' && loaded ? t(`${NS}.not_on_plan`) : placeholder
           }

@@ -1653,9 +1653,9 @@
       "col_plan": "플랜",
       "col_auth": "인증",
       "col_window": "창 초기화",
-      "col_five_hour": "5시간",
-      "col_weekly": "주간",
-      "col_fable": "Fable 5",
+      "col_five_hour": "5시간 한도",
+      "col_weekly": "7일 한도",
+      "col_fable": "7일 Fable 5",
       "not_on_plan": "플랜에 없음",
       "group_accounts_one": "계정 {{count}}개",
       "group_accounts_other": "계정 {{count}}개",
@@ -1694,15 +1694,16 @@
       "rename_label": "표시 이름",
       "rename_saved": "표시 이름을 저장했습니다",
       "rename_failed": "표시 이름을 저장할 수 없습니다",
-      "col_resets": "수동 초기화",
+      "col_resets": "남은 초기화 횟수",
       "resets_none": "없음",
       "resets_count_one": "초기화 {{count}}회",
       "resets_count_other": "초기화 {{count}}회",
       "resets_next": "가장 빠른 만료까지 {{time}}",
-      "resets_use": "사용",
+      "resets_use": "한도 초기화",
       "resets_retry": "재시도",
       "resets_detail_item": "{{label}} · {{date}} 만료",
-      "resets_when_limited": "Claude는 계정이 한도에 도달했을 때만 수동 초기화를 허용합니다"
+      "resets_when_limited": "Claude는 계정이 한도에 도달했을 때만 수동 초기화를 허용합니다",
+      "last_seen": "마지막 사용"
     }
   },
   "plugin_management": {

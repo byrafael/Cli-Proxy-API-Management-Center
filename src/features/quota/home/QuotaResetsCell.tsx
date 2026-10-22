@@ -6,6 +6,7 @@
  */
 
 import { useMemo } from 'react';
+import { IconRefreshCw } from '@/components/ui/icons';
 import { parseIsoToMs } from '@/utils/quota';
 import { useClaudeResetGrants } from '../providers/claude/ClaudeResetGrants';
 import type { QuotaFileEntry } from '../logic';
@@ -92,8 +93,28 @@ export function QuotaResetsCell({
   }, [claude.grants, entry.type, loaded, quota, t]);
 
   const supported = entry.type === 'claude' || entry.type === 'codex';
-  if (!supported) return <span className={styles.empty}>—</span>;
-  if (!loaded) return <span className={styles.empty}>{loading ? '…' : '—'}</span>;
+  const refreshAction = (
+    <button
+      type="button"
+      className={styles.refresh}
+      disabled={!canAct || loading || resetting || entry.file.disabled === true}
+      onClick={onRefresh}
+      aria-label={t('auth_files.quota_refresh_single')}
+      title={t('auth_files.quota_refresh_hint')}
+    >
+      <IconRefreshCw size={14} className={loading ? styles.spinning : undefined} />
+    </button>
+  );
+  if (!loaded) {
+    return (
+      <div className={styles.cell}>
+        <div className={styles.top}>
+          <span className={styles.empty}>{loading ? '…' : '—'}</span>
+          {refreshAction}
+        </div>
+      </div>
+    );
+  }
 
   // Codex 的数量优先取后端汇总（明细读取失败时仍有数字）。
   const codexCount =
@@ -104,14 +125,37 @@ export function QuotaResetsCell({
   const claudeLoaded = entry.type === 'claude' && claude.count !== null;
   const count = entry.type === 'codex' ? (codexCount ?? 0) : (claude.count ?? null);
 
+  if (!supported) {
+    return (
+      <div className={styles.cell}>
+        <div className={styles.top}>
+          <span className={styles.empty}>—</span>
+          {refreshAction}
+        </div>
+      </div>
+    );
+  }
+
   if (entry.type === 'claude' && !claudeLoaded && !claude.message) {
-    return <span className={styles.empty}>…</span>;
+    return (
+      <div className={styles.cell}>
+        <div className={styles.top}>
+          <span className={styles.empty}>…</span>
+          {refreshAction}
+        </div>
+      </div>
+    );
   }
   if (count === null) {
     return (
-      <span className={styles.message} role="status">
-        {claude.message ? t(`claude_reset.${claude.message}`) : '—'}
-      </span>
+      <div className={styles.cell}>
+        <div className={styles.top}>
+          <span className={styles.message} role="status">
+            {claude.message ? t(`claude_reset.${claude.message}`) : '—'}
+          </span>
+          {refreshAction}
+        </div>
+      </div>
     );
   }
 
@@ -131,7 +175,9 @@ export function QuotaResetsCell({
     .join('\n');
   const tone = count > 0 && nextExpiry !== null ? expiryTone(nextExpiry - now) : 'none';
 
-  const canUse = entry.type === 'codex' ? canAct && !resetting : !claude.blocked;
+  const canUse =
+    entry.file.disabled !== true &&
+    (entry.type === 'codex' ? canAct && !resetting : !claude.blocked);
   const showButton =
     entry.type === 'codex' ? count > 0 : count > 0 || claude.buttonLabel === 'retry';
   const retrying = entry.type === 'claude' && claude.buttonLabel === 'retry';
@@ -164,6 +210,7 @@ export function QuotaResetsCell({
             {busy ? '…' : t(`${NS}.${retrying ? 'resets_retry' : 'resets_use'}`)}
           </button>
         )}
+        {refreshAction}
       </div>
       {nextExpiry !== null && count > 0 && (
         <span className={styles.sub} title={format.absolute(nextExpiry)}>

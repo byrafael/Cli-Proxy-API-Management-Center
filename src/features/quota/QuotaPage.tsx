@@ -295,10 +295,6 @@ export function QuotaPage() {
   const rowActions = useMemo<QuotaRowActions>(
     () => ({
       canAct: filesSettled,
-      onRefresh: (id) => {
-        const entry = entryById.get(id);
-        if (entry) void refreshQuota(entry.file, QUOTA_ADAPTERS[entry.type]);
-      },
       noteFor: (id) => entryById.get(id)?.file.note?.trim() ?? '',
       onRename: async (id, name) => {
         const entry = entryById.get(id);
@@ -323,7 +319,7 @@ export function QuotaPage() {
         }
       },
     }),
-    [entryById, filesSettled, refreshQuota, showNotification, t]
+    [entryById, filesSettled, showNotification, t]
   );
 
   const renderResets = useCallback(

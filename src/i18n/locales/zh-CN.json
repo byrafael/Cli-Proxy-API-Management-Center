@@ -1651,9 +1651,9 @@
       "col_plan": "套餐",
       "col_auth": "认证",
       "col_window": "窗口重置",
-      "col_five_hour": "5 小时",
-      "col_weekly": "每周",
-      "col_fable": "Fable 5",
+      "col_five_hour": "5 小时限额",
+      "col_weekly": "7 天限额",
+      "col_fable": "7 天 Fable 5",
       "not_on_plan": "套餐不含",
       "group_accounts_other": "{{count}} 个账号",
       "group_ready": "{{count}} 个可用",
@@ -1691,15 +1691,16 @@
       "rename_label": "显示名称",
       "rename_saved": "显示名称已保存",
       "rename_failed": "无法保存显示名称",
-      "col_resets": "手动重置",
+      "col_resets": "剩余重置次数",
       "resets_none": "无",
       "resets_count_one": "{{count}} 次重置",
       "resets_count_other": "{{count}} 次重置",
       "resets_next": "最近 {{time}} 后过期",
-      "resets_use": "使用",
+      "resets_use": "重置限额",
       "resets_retry": "重试",
       "resets_detail_item": "{{label}} · {{date}} 到期",
-      "resets_when_limited": "Claude 只允许在账号被限额时使用手动重置"
+      "resets_when_limited": "Claude 只允许在账号被限额时使用手动重置",
+      "last_seen": "最后使用"
     }
   },
   "plugin_management": {
