@@ -28,6 +28,8 @@ export const PLAN_TIER_ORDER: readonly PlanTier[] = ['max', 'team', 'pro', 'free
 export interface QuotaLimit {
   /** Display name supplied by the provider quota response, when available. */
   label?: string;
+  /** Model name supplied by a scoped quota response. */
+  scopeLabel?: string;
   /** Window duration supplied by the provider quota response, when available. */
   periodHours?: number | null;
   /** 剩余百分比，0–100。 */

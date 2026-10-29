@@ -16,6 +16,7 @@ import {
 } from './model';
 import { LimitBar, ProviderMark, StatusDot, type QuotaViewProps } from './shared';
 import { useQuotaFormat } from './useQuotaFormat';
+import { ledgerWindowLabel } from './windowLabels';
 import styles from './QuotaLedger.module.scss';
 
 const NS = 'quota_management.home';
@@ -54,11 +55,6 @@ function LedgerRow({
   const { t, absolute } = useQuotaFormat();
   const loaded = !account.pending && !account.error && !account.disabled;
   const placeholder = account.pending ? '…' : '—';
-  const weeklyLabel =
-    account.weekly?.periodHours === 168 &&
-    account.weekly.label === t('codex_quota.secondary_window')
-      ? `${t(`${NS}.period_week`)} • ${t('quota_management.windows_mode_weekly')}`
-      : account.weekly?.label;
   const title = accountTitle(account, redact);
   const errorText = account.error && redact ? redactEmailsIn(account.error) : account.error;
   const [editing, setEditing] = useState(false);
@@ -159,7 +155,7 @@ function LedgerRow({
       <td headers="quota-col-weekly">
         <LimitBar
           limit={account.weekly}
-          label={weeklyLabel}
+          label={ledgerWindowLabel(account.provider, account.weekly, 'weekly', t)}
           now={now}
           showReset
           fullWidth
@@ -169,7 +165,7 @@ function LedgerRow({
       <td headers="quota-col-five_hour">
         <LimitBar
           limit={account.fiveHour}
-          label={account.fiveHour?.label}
+          label={ledgerWindowLabel(account.provider, account.fiveHour, 'session', t)}
           now={now}
           showReset
           fullWidth
@@ -179,7 +175,7 @@ function LedgerRow({
       <td headers="quota-col-fable">
         <LimitBar
           limit={account.fable}
-          label={account.fable?.label}
+          label={ledgerWindowLabel(account.provider, account.fable, 'fable', t)}
           now={now}
           showReset
           fullWidth

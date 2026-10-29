@@ -24,6 +24,7 @@ const WEEKLY_WINDOW_MAX_HOURS = 24 * 8;
 interface NormalizedWindow {
   id: string;
   label: string | null;
+  scopeLabel?: string;
   /** 剩余百分比 0–100。 */
   remaining: number;
   resetsAt: number;
@@ -127,6 +128,7 @@ const readPlan = (provider: QuotaProviderType, quota: Record<string, unknown>): 
 interface WindowLike {
   id?: unknown;
   label?: unknown;
+  scopeLabel?: unknown;
   displayName?: unknown;
   usedPercent?: unknown;
   remainingPercent?: unknown;
@@ -148,6 +150,7 @@ const fromWindowLike = (window: WindowLike, index: number): NormalizedWindow | n
       (typeof window.displayName === 'string' && window.displayName.trim()) ||
       null,
     remaining: clampPct(remaining),
+    scopeLabel: typeof window.scopeLabel === 'string' ? window.scopeLabel : undefined,
     resetsAt,
     periodHours: isFiniteNumber(window.periodHours) ? window.periodHours : null,
   };
@@ -252,6 +255,7 @@ const toLimit = (window: NormalizedWindow | undefined): QuotaLimit | null =>
   window
     ? {
         ...(window.label ? { label: window.label } : {}),
+        ...(window.scopeLabel ? { scopeLabel: window.scopeLabel } : {}),
         periodHours: window.periodHours,
         remainingPct: window.remaining,
         resetsAt: window.resetsAt,

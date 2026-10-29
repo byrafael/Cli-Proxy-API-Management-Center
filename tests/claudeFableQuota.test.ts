@@ -29,8 +29,9 @@ describe('Claude Fable quota', () => {
     expect(windows).toEqual([
       {
         id: 'seven-day-fable',
-        label: 'claude_quota.seven_day_fable',
+        label: 'claude_quota.seven_day_model',
         labelKey: 'claude_quota.seven_day_fable',
+        scopeLabel: 'Fable',
         usedPercent: 64,
         resetLabel: formatQuotaResetTime(modernReset),
         resetAtMs: Date.parse(modernReset),
@@ -244,8 +245,9 @@ describe('Claude Fable quota', () => {
     expect(windows).toEqual([
       {
         id: 'seven-day-fable',
-        label: 'claude_quota.seven_day_fable',
+        label: 'claude_quota.seven_day_model',
         labelKey: 'claude_quota.seven_day_fable',
+        scopeLabel: 'Fable',
         usedPercent: 64,
         resetLabel: formatQuotaResetTime(modernReset),
         resetAtMs: Date.parse(modernReset),

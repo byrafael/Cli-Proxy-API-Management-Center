@@ -115,6 +115,7 @@ export const buildClaudeQuotaWindows = (
         id: 'seven-day-fable',
         label: modelName ? t('claude_quota.seven_day_model', { model: modelName }) : '',
         labelKey: 'claude_quota.seven_day_fable',
+        scopeLabel: modelName ?? undefined,
         usedPercent,
         resetLabel: formatQuotaResetTime(fableLimit.resets_at ?? undefined),
         // `weekly_scoped` is a 7-day window by definition, so the timeline can
