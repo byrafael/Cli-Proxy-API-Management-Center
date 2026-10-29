@@ -198,6 +198,7 @@ export interface ClaudeQuotaWindow {
   id: string;
   label: string;
   labelKey?: string;
+  scopeLabel?: string;
   usedPercent: number | null;
   resetLabel: string;
   /**

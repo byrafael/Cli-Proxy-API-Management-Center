@@ -32,6 +32,14 @@ export function SectionNetwork({
       label: t('config_management.visual.sections.network.strategy_weighted_round_robin'),
     },
     {
+      value: 'reset-weighted-round-robin',
+      label: t('config_management.visual.sections.network.strategy_reset_weighted_round_robin'),
+    },
+    {
+      value: 'earliest-reset-first',
+      label: t('config_management.visual.sections.network.strategy_earliest_reset_first'),
+    },
+    {
       value: 'fill-first',
       label: t('config_management.visual.sections.network.strategy_fill_first'),
     },
