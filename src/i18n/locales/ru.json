@@ -649,7 +649,7 @@
     "empty_data": "Данные по квоте отсутствуют",
     "refresh_button": "Обновить квоту",
     "fetch_all": "Получить все",
-    "weekly_limit": "Недельный лимит",
+    "weekly_limit": "7 дней · Еженедельно",
     "monthly_credits": "Месячные кредиты",
     "used_percent": "Использовано {{percent}}",
     "usage_unavailable": "Данные об использовании недоступны от xAI",

@@ -646,7 +646,7 @@
     "empty_data": "No quota data available",
     "refresh_button": "Refresh Quota",
     "fetch_all": "Fetch All",
-    "weekly_limit": "Weekly limit",
+    "weekly_limit": "7-day · Weekly",
     "monthly_credits": "Monthly credits",
     "used_percent": "Used {{percent}}",
     "usage_unavailable": "Usage unavailable from xAI",

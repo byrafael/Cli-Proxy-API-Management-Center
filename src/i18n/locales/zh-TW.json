@@ -644,7 +644,7 @@
     "empty_data": "暫無配額資料",
     "refresh_button": "重新整理配額",
     "fetch_all": "取得全部",
-    "weekly_limit": "週限額",
+    "weekly_limit": "7 天 · 每週",
     "monthly_credits": "月度點數",
     "used_percent": "已用 {{percent}}",
     "usage_unavailable": "xAI 用量暫不可用",

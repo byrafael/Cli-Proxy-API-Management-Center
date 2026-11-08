@@ -644,7 +644,7 @@
     "empty_data": "暂无额度数据",
     "refresh_button": "刷新额度",
     "fetch_all": "获取全部",
-    "weekly_limit": "周限额",
+    "weekly_limit": "7 天 · 每周",
     "monthly_credits": "月度积分",
     "used_percent": "已用 {{percent}}",
     "usage_unavailable": "xAI 用量暂不可用",

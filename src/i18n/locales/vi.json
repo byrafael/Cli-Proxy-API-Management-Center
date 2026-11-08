@@ -602,7 +602,7 @@
     "empty_data": "Chưa có dữ liệu quota",
     "refresh_button": "Làm mới Quota",
     "fetch_all": "Lấy tất cả",
-    "weekly_limit": "Giới hạn tuần",
+    "weekly_limit": "7 ngày · Hàng tuần",
     "monthly_credits": "Credit tháng",
     "used_percent": "Đã dùng {{percent}}",
     "reset_at": "Đặt lại lúc {{time}}",

@@ -646,7 +646,7 @@
     "empty_data": "할당량 데이터가 없습니다.",
     "refresh_button": "할당량 새로 고침",
     "fetch_all": "모두 가져오기",
-    "weekly_limit": "주간 한도",
+    "weekly_limit": "7일 · 주간",
     "monthly_credits": "월간 크레딧",
     "used_percent": "{{percent}} 사용됨",
     "usage_unavailable": "xAI에서 사용량 정보를 제공하지 않음",
