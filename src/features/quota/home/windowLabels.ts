@@ -10,7 +10,7 @@ export function ledgerWindowLabel(
   if (!limit) return undefined;
   const hours = limit.periodHours;
   if (
-    !['claude', 'codex'].includes(provider) ||
+    !['claude', 'codex'].includes(provider) && !(provider === 'xai' && kind === 'weekly') ||
     (kind === 'weekly' && hours !== 168) ||
     !hours ||
     !Number.isFinite(hours) ||

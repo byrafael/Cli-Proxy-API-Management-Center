@@ -6,6 +6,7 @@ import { ledgerWindowLabel } from '../src/features/quota/home/windowLabels';
 import { QuotaLedger } from '../src/features/quota/home/QuotaLedger';
 import { buildQuotaAccount, classifyLimits } from '../src/features/quota/home/fromQuota';
 import { buildClaudeQuotaWindows } from '../src/features/quota/providers/claude/data';
+import { buildXaiBillingSummary } from '../src/utils/quota';
 
 const now = Date.UTC(2026, 9, 29, 12);
 const reset = new Date(now + 86400000).toISOString();
@@ -44,6 +45,14 @@ describe('ledger window labels', () => {
     expect(ledgerWindowLabel('codex', { ...limit, periodHours: 5 }, 'session', t)).toBe(
       '5-hour • Session'
     );
+  });
+
+  test('formats xAI weekly from the actual 168-hour reset window', () => {
+    const limit = { remainingPct: 0, periodHours: 168, resetsAt: now };
+    expect(ledgerWindowLabel('xai', limit, 'weekly', t)).toBe('7-day • Weekly');
+    expect(
+      ledgerWindowLabel('xai', { ...limit, periodHours: 720 }, 'weekly', t)
+    ).toBeUndefined();
   });
 
   test('preserves custom labels and leaves absent windows absent', () => {
@@ -94,5 +103,38 @@ describe('ledger window labels', () => {
     expect(markup).toContain('5-hour • Session');
     expect(markup).toContain('7-day • Fable 5');
     expect(markup).not.toContain('<span>7-day limit</span>');
+  });
+
+  test('renders the xAI 7-day label in Quota Management', async () => {
+    await i18n.changeLanguage('en');
+    const billing = buildXaiBillingSummary({
+      currentPeriod: {
+        type: 'USAGE_PERIOD_TYPE_WEEKLY',
+        start: new Date(now).toISOString(),
+        end: new Date(now + 168 * 60 * 60 * 1000).toISOString(),
+      },
+      creditUsagePercent: 100,
+    });
+    expect(billing).not.toBeNull();
+    const account = buildQuotaAccount(
+      { file: { name: 'xai-ultra.json', type: 'xai' }, type: 'xai' },
+      'xai-ultra',
+      { status: 'success', billing },
+      { describeError: (_, message) => message }
+    );
+    const markup = renderToStaticMarkup(
+      createElement(QuotaLedger, {
+        accounts: [account],
+        now,
+        redact: true,
+        theme: 'light',
+        groupBy: 'none',
+        actions: { canAct: false, noteFor: () => '', onRename: async () => {} },
+        renderResets: () => null,
+      })
+    );
+
+    expect(markup).toContain('7-day • Weekly');
+    expect(markup).toContain('>0%</span>');
   });
 });
