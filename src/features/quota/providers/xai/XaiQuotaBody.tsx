@@ -210,7 +210,10 @@ export function XaiQuotaBody({ quota, classes }: QuotaBodyProps<XaiQuotaState>) 
           className={classes.quotaRow}
           title={weeklySoon ? t('quota_management.soonest_row_hint') : undefined}
         >
-          <div className={classes.quotaRowHeader}>
+          <div
+            className={classes.quotaRowHeader}
+            style={{ flexDirection: 'column', alignItems: 'flex-start' }}
+          >
             <span className={classes.quotaModel}>{t('xai_quota.weekly_limit')}</span>
             <div className={classes.quotaMeta}>
               <span className={classes.quotaPercent}>

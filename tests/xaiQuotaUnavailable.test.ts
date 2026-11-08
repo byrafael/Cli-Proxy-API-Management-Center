@@ -135,6 +135,8 @@ describe('XaiQuotaBody unavailable weekly usage', () => {
   test.each([100, 120])('renders exhausted usage %i as 0% remaining', (percent) => {
     const markup = render(quotaFor(weeklyConfig({ creditUsagePercent: percent }), monthlyConfig()));
 
+    expect(markup).toContain('7-day · Weekly');
+    expect(markup).toContain('style="flex-direction:column;align-items:flex-start"');
     expect(markup).toContain('class="quotaPercent">0%</span>');
     expect(markup).toContain('width:0%');
   });
