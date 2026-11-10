@@ -43,7 +43,12 @@ export function useQuotaBatchLoader() {
   const requestIdRef = useRef(0);
 
   const loadQuota = useCallback(
-    /** Resolves false when skipped because another batch is already in flight. */
+    /**
+     * Resolves true only when every target was read and committed for the current
+     * session: false when another batch is in flight, a poll skipped a credential
+     * held by a foreground write, a newer batch superseded this one, or the session
+     * changed.
+     */
     async (targets: QuotaFileEntry[], options: QuotaBatchOptions = {}): Promise<boolean> => {
       if (loadingRef.current) return false;
       if (targets.length === 0) return true;
@@ -51,6 +56,7 @@ export function useQuotaBatchLoader() {
       const requestId = ++requestIdRef.current;
       const cacheGeneration = captureQuotaCacheGeneration();
       setBatchLoading(true);
+      let complete = true;
 
       try {
         const groups = new Map<QuotaProviderType, QuotaFileEntry[]>();
@@ -73,6 +79,7 @@ export function useQuotaBatchLoader() {
               const write = beginQuotaWrite(cacheKey);
               return [{ entry, cacheKey, canCommit: write.owns, end: write.end }];
             });
+            if (claims.length < entries.length) complete = false;
             if (claims.length === 0) return;
 
             try {
@@ -106,7 +113,10 @@ export function useQuotaBatchLoader() {
                 })
               );
 
-              if (requestId !== requestIdRef.current) return;
+              if (requestId !== requestIdRef.current) {
+                complete = false;
+                return;
+              }
 
               const committedStates = new Map<string, QuotaCardState>();
               setQuota((prev) => {
@@ -154,7 +164,11 @@ export function useQuotaBatchLoader() {
           loadingRef.current = false;
         }
       }
-      return true;
+      let sessionCurrent = false;
+      commitIfQuotaCacheCurrent(cacheGeneration, () => {
+        sessionCurrent = true;
+      });
+      return complete && sessionCurrent;
     },
     [t]
   );

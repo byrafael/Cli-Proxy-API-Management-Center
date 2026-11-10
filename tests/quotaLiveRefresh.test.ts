@@ -24,6 +24,9 @@ import {
   settleSupersededLoading,
 } from '@/features/quota/requestOwnership';
 import type { QuotaAdapter, QuotaCardState } from '@/features/quota/providers';
+import { useQuotaBatchLoader } from '@/features/quota/hooks/useQuotaBatchLoader';
+import { getQuotaCacheKey } from '@/utils/quota/identity';
+import type { AuthFileItem } from '@/types';
 import { latestSampleAt, type QuotaHistory } from '@/features/quota/forecast/history';
 import { buildForecast } from '@/features/quota/forecast/model';
 
@@ -146,6 +149,34 @@ describe('live refresh', () => {
     reset.end();
     const poll = beginQuotaRead('own:d');
     expect(poll?.()).toBe(true);
+  });
+
+  test('a newer poll invalidates an older one without touching writes', () => {
+    const older = beginQuotaRead('own:e');
+    const newer = beginQuotaRead('own:e');
+    expect(older?.()).toBe(false);
+    expect(newer?.()).toBe(true);
+    const write = beginQuotaWrite('own:e');
+    expect(write.owns()).toBe(true);
+    expect(newer?.()).toBe(false);
+    write.end();
+  });
+
+  test('a poll that skips a write-locked credential is not a full read', async () => {
+    let loadQuota: ReturnType<typeof useQuotaBatchLoader>['loadQuota'] | null = null;
+    const Probe = () => {
+      loadQuota = useQuotaBatchLoader().loadQuota;
+      return null;
+    };
+    renderToStaticMarkup(createElement(I18nextProvider, { i18n }, createElement(Probe)));
+    const file = { name: 'locked.json', type: 'codex' } as AuthFileItem;
+    const reset = beginQuotaWrite(getQuotaCacheKey(file));
+    try {
+      const read = await loadQuota!([{ file, type: 'codex' }], { background: true });
+      expect(read).toBe(false);
+    } finally {
+      reset.end();
+    }
   });
 
   test('a failed reset settles a row a superseded read left loading', () => {
