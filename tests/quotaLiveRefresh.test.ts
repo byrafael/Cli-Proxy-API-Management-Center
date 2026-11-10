@@ -23,7 +23,7 @@ import {
   beginQuotaWrite,
   settleSupersededLoading,
 } from '@/features/quota/requestOwnership';
-import type { QuotaAdapter, QuotaCardState } from '@/features/quota/providers';
+import { QUOTA_ADAPTERS, type QuotaAdapter, type QuotaCardState } from '@/features/quota/providers';
 import { useQuotaBatchLoader } from '@/features/quota/hooks/useQuotaBatchLoader';
 import { getQuotaCacheKey } from '@/utils/quota/identity';
 import type { AuthFileItem } from '@/types';
@@ -176,6 +176,29 @@ describe('live refresh', () => {
       expect(read).toBe(false);
     } finally {
       reset.end();
+    }
+  });
+
+  test('a poll whose result is dropped mid-fetch is not a full read', async () => {
+    let loadQuota: ReturnType<typeof useQuotaBatchLoader>['loadQuota'] | null = null;
+    const Probe = () => {
+      loadQuota = useQuotaBatchLoader().loadQuota;
+      return null;
+    };
+    renderToStaticMarkup(createElement(I18nextProvider, { i18n }, createElement(Probe)));
+    const adapter = QUOTA_ADAPTERS.codex;
+    const originalFetch = adapter.fetchQuota;
+    let release: (value: unknown) => void = () => {};
+    adapter.fetchQuota = () => new Promise((resolve) => (release = resolve));
+    try {
+      const file = { name: 'raced.json', type: 'codex' } as AuthFileItem;
+      const poll = loadQuota!([{ file, type: 'codex' }], { background: true });
+      // A manual refresh starts and finishes while the poll is still fetching.
+      beginQuotaWrite(getQuotaCacheKey(file)).end();
+      release({});
+      expect(await poll).toBe(false);
+    } finally {
+      adapter.fetchQuota = originalFetch;
     }
   });
 

@@ -46,7 +46,8 @@ export function useQuotaBatchLoader() {
     /**
      * Resolves true only when every target was read and committed for the current
      * session: false when another batch is in flight, a poll skipped a credential
-     * held by a foreground write, a newer batch superseded this one, or the session
+     * held by a foreground write, any result was dropped because a later write or
+     * poll took the credential, a newer batch superseded this one, or the session
      * changed.
      */
     async (targets: QuotaFileEntry[], options: QuotaBatchOptions = {}): Promise<boolean> => {
@@ -141,6 +142,8 @@ export function useQuotaBatchLoader() {
                 });
                 return nextState;
               });
+              // A result dropped for ownership or session means this was not a full read.
+              if (committedStates.size < claims.length) complete = false;
               results.forEach((result, index) => {
                 const state = committedStates.get(result.cacheKey);
                 if (result.status === 'success' && state) {
