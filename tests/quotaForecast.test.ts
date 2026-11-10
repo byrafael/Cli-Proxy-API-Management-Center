@@ -80,6 +80,14 @@ describe('quota history recording', () => {
     expect(recordSamples(old, [], NOW)).toEqual({});
   });
 
+  test('keeps a month of samples', () => {
+    const at = (age: number): QuotaHistory => ({
+      'a#weekly': { provider: 'claude', periodHours: 168, points: [{ t: NOW - age, v: 90, r: NOW }] },
+    });
+    expect(recordSamples(at(29 * DAY), [], NOW)['a#weekly'].points).toHaveLength(1);
+    expect(recordSamples(at(31 * DAY), [], NOW)).toEqual({});
+  });
+
   test('round-trips through storage and rejects malformed entries', () => {
     const history = recordSamples(
       {},

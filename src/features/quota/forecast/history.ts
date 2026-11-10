@@ -30,7 +30,8 @@ export interface HistorySeries {
 /** Keyed by `${accountId}#${window}`. */
 export type QuotaHistory = Record<string, HistorySeries>;
 
-export const HISTORY_RETENTION_MS = 21 * DAY;
+/** A month of samples, enough for a monthly view. */
+export const HISTORY_RETENTION_MS = 30 * DAY;
 /** An unchanged value is still recorded this often, so coverage stays measurable. */
 const HEARTBEAT_MS = HOUR;
 
