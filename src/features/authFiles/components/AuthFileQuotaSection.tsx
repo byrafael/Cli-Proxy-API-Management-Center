@@ -15,6 +15,7 @@ import { IconRefreshCw } from '@/components/ui/icons';
 import { bindQuotaClasses } from '@/features/quota/types';
 import { QUOTA_ADAPTERS, type QuotaCardState } from '@/features/quota/providers';
 import { hasClaudeUsageData } from '@/features/quota/providers/claude/data';
+import { beginQuotaWrite, settleSupersededLoading } from '@/features/quota/requestOwnership';
 import styles from './AuthFileQuota.module.scss';
 
 /** Bind the auth-file host's compact styles to the quota rendering contract. */
@@ -69,6 +70,7 @@ export function AuthFileQuotaSection(props: AuthFileQuotaSectionProps) {
     if (quota?.status === 'loading' || resettingQuota) return;
 
     const cacheGeneration = captureQuotaCacheGeneration(file.name);
+    const write = beginQuotaWrite(cacheKey);
 
     updateQuotaState((prev) => ({
       ...prev,
@@ -77,6 +79,7 @@ export function AuthFileQuotaSection(props: AuthFileQuotaSectionProps) {
 
     try {
       const data = await adapter.fetchQuota(file, t);
+      if (!write.owns()) return;
       commitIfQuotaCacheCurrent(cacheGeneration, () => {
         updateQuotaState((prev) => ({
           ...prev,
@@ -87,6 +90,7 @@ export function AuthFileQuotaSection(props: AuthFileQuotaSectionProps) {
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : t('common.unknown_error');
       const status = getStatusFromError(err);
+      if (!write.owns()) return;
       commitIfQuotaCacheCurrent(cacheGeneration, () => {
         updateQuotaState((prev) => ({
           ...prev,
@@ -97,6 +101,8 @@ export function AuthFileQuotaSection(props: AuthFileQuotaSectionProps) {
           'error'
         );
       });
+    } finally {
+      write.end();
     }
   }, [
     adapter,
@@ -127,22 +133,27 @@ export function AuthFileQuotaSection(props: AuthFileQuotaSectionProps) {
       variant: 'primary',
       onConfirm: async () => {
         const cacheGeneration = captureQuotaCacheGeneration(file.name);
+        const write = beginQuotaWrite(cacheKey);
         setResettingQuota(true);
         try {
           const data = await resetQuota(file, t);
           commitIfQuotaCacheCurrent(cacheGeneration, () => {
-            updateQuotaState((prev) => ({
-              ...prev,
-              [cacheKey]: adapter.buildSuccessState(data),
-            }));
+            if (write.owns()) {
+              updateQuotaState((prev) => ({
+                ...prev,
+                [cacheKey]: adapter.buildSuccessState(data),
+              }));
+            }
             showNotification(t('codex_quota.reset_success', { name: file.name }), 'success');
           });
         } catch (err: unknown) {
           const message = err instanceof Error ? err.message : t('common.unknown_error');
           commitIfQuotaCacheCurrent(cacheGeneration, () => {
+            if (write.owns()) settleSupersededLoading(updateQuotaState, adapter, cacheKey, message);
             showNotification(t('codex_quota.reset_failed', { name: file.name, message }), 'error');
           });
         } finally {
+          write.end();
           setResettingQuota(false);
         }
       },

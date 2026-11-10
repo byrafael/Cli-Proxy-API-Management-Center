@@ -81,6 +81,48 @@
   flex-shrink: 0;
 }
 
+/* Auto-refresh picker: a pulsing dot marks a live page. */
+.live {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-right: 6px;
+}
+
+.liveLabel {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.liveDot,
+.liveDotOn {
+  width: 8px;
+  height: 8px;
+  border-radius: $radius-full;
+  flex-shrink: 0;
+}
+
+.liveDot {
+  background: var(--text-quaternary);
+}
+
+.liveDotOn {
+  background: var(--viz-success);
+  animation: quota-live-pulse 2s var(--ease-out-strong, ease-out) infinite;
+}
+
+@keyframes quota-live-pulse {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--viz-success) 55%, transparent);
+  }
+  70%,
+  100% {
+    box-shadow: 0 0 0 6px color-mix(in srgb, var(--viz-success) 0%, transparent);
+  }
+}
+
 /* 墨色药丸主按钮（深色主题自动反相） */
 .primaryAction {
   display: inline-flex;
@@ -153,7 +195,8 @@
     transform: none;
   }
 
-  .spinning {
+  .spinning,
+  .liveDotOn {
     animation: none;
   }
 }

@@ -1,6 +1,8 @@
 import { useTranslation } from 'react-i18next';
 import { IconRefreshCw } from '@/components/ui/icons';
+import { Select } from '@/components/ui/Select';
 import { useCountUp } from '@/hooks/motion';
+import { LIVE_REFRESH_OPTIONS, isLiveRefreshOption, type LiveRefreshOption } from '../liveRefresh';
 import styles from './QuotaHeader.module.scss';
 
 export type QuotaHeaderProps = {
@@ -10,6 +12,10 @@ export type QuotaHeaderProps = {
   refreshing: boolean;
   disableControls: boolean;
   onRefreshAll: () => void;
+  liveRefresh: LiveRefreshOption;
+  onLiveRefreshChange: (next: LiveRefreshOption) => void;
+  /** When the last full read of every credential finished, epoch ms. */
+  updatedAt: number | null;
 };
 
 /**
@@ -20,9 +26,23 @@ export type QuotaHeaderProps = {
  * （标题 0ms → meta 70ms → 动作 140ms → tabs 210ms）。
  */
 export function QuotaHeader(props: QuotaHeaderProps) {
-  const { totalCount, loadedCount, attentionCount, refreshing, disableControls, onRefreshAll } =
-    props;
-  const { t } = useTranslation();
+  const {
+    totalCount,
+    loadedCount,
+    attentionCount,
+    refreshing,
+    disableControls,
+    onRefreshAll,
+    liveRefresh,
+    onLiveRefreshChange,
+    updatedAt,
+  } = props;
+  const { t, i18n } = useTranslation();
+  const live = liveRefresh !== 'off';
+  const liveOptions = LIVE_REFRESH_OPTIONS.map((option) => ({
+    value: option,
+    label: t(`quota_management.live_refresh_${option}`),
+  }));
   // 批量结果陆续落地时，「已加载」是页面上唯一滚动的数字
   const displayLoadedCount = useCountUp(loadedCount);
 
@@ -52,9 +72,45 @@ export function QuotaHeader(props: QuotaHeaderProps) {
               </span>
             </>
           )}
+          {updatedAt !== null && (
+            <>
+              <span className={styles.metaDot} aria-hidden="true">
+                ·
+              </span>
+              <span className={styles.metaMuted}>
+                {t('quota_management.meta_updated', {
+                  time: new Date(updatedAt).toLocaleTimeString(i18n.language, {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit',
+                  }),
+                })}
+              </span>
+            </>
+          )}
         </p>
       </div>
       <div className={styles.actions} data-reveal>
+        <div className={styles.live}>
+          <span
+            className={live ? styles.liveDotOn : styles.liveDot}
+            data-live={live}
+            aria-hidden="true"
+          />
+          <span className={styles.liveLabel} id="quota-live-refresh-label">
+            {t('quota_management.live_refresh_label')}
+          </span>
+          <Select
+            size="sm"
+            value={liveRefresh}
+            options={liveOptions}
+            ariaLabelledBy="quota-live-refresh-label"
+            disabled={disableControls}
+            onChange={(value) => {
+              if (isLiveRefreshOption(value)) onLiveRefreshChange(value);
+            }}
+          />
+        </div>
         <button
           type="button"
           className={styles.primaryAction}

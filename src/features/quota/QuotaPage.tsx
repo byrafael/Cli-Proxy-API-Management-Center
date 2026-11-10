@@ -29,7 +29,13 @@ import { resolveQuotaErrorMessage } from '@/utils/quota';
 import { getQuotaCacheKey } from '@/utils/quota/identity';
 import { QuotaHeader } from './components/QuotaHeader';
 import { QUOTA_PAGE_SIZE, QUOTA_TAB_ORDER } from './constants';
-import { loadHistory, recordSamples, saveHistory, type QuotaHistory } from './forecast/history';
+import {
+  latestSampleAt,
+  loadHistory,
+  recordSamples,
+  saveHistory,
+  type QuotaHistory,
+} from './forecast/history';
 import { buildForecast } from './forecast/model';
 import { QuotaForecast } from './forecast/QuotaForecast';
 import { buildQuotaAccount } from './home/fromQuota';
@@ -50,14 +56,19 @@ import { canRefreshQuotaAfterList, classifyQuotaFiles, type QuotaFileEntry } fro
 import { QUOTA_ADAPTERS, getQuotaSetter, type QuotaCardState } from './providers';
 import type { QuotaProviderType } from './providers/types';
 import { useQuotaActions } from './hooks/useQuotaActions';
-import { useQuotaBatchLoader } from './hooks/useQuotaBatchLoader';
+import { useQuotaBatchLoader, type QuotaBatchOptions } from './hooks/useQuotaBatchLoader';
+import {
+  isLiveRefreshDue,
+  liveRefreshIntervalMs,
+  readLiveRefresh,
+  writeLiveRefresh,
+  type LiveRefreshOption,
+} from './liveRefresh';
 import { readQuotaUiState, writeQuotaUiState } from './uiState';
 import styles from './QuotaPage.module.scss';
 
 const NS = 'quota_management.home';
 const SKELETON_ROWS = 6;
-/** While the page is visible, limits refresh this often so the forecast keeps recording. */
-const FORECAST_REFRESH_MS = 15 * 60_000;
 
 export function QuotaPage() {
   const { t } = useTranslation();
@@ -214,7 +225,12 @@ export function QuotaPage() {
     });
   }, [allAccounts]);
 
-  const forecast = useMemo(() => buildForecast(allAccounts, history, now), [allAccounts, history, now]);
+  // The minute clock can trail the newest sample; the forecast must include it.
+  const forecastNow = useMemo(() => Math.max(now, latestSampleAt(history)), [now, history]);
+  const forecast = useMemo(
+    () => buildForecast(allAccounts, history, forecastNow),
+    [allAccounts, history, forecastNow]
+  );
 
   // 剪枝：文件列表落定后，各 provider 缓存只保留仍存在的凭证
   useEffect(() => {
@@ -242,13 +258,33 @@ export function QuotaPage() {
   const { batchLoading, loadQuota } = useQuotaBatchLoader();
   const { resettingQuotaName, refreshQuota, resetQuota } = useQuotaActions(disableControls);
 
-  /** 分批加载：每批最多 QUOTA_PAGE_SIZE 个，批与批之间串行，限制对上游的并发。 */
+  // Last time a read of every current credential finished: the "updated" stamp and the
+  // reference for catching up when a hidden tab returns. Partial loads do not move it.
+  const [updatedAt, setUpdatedAt] = useState<number | null>(null);
+  const updatedAtRef = useRef<number | null>(null);
+  const markFullRead = useCallback(() => {
+    const finishedAt = Date.now();
+    updatedAtRef.current = finishedAt;
+    setUpdatedAt(finishedAt);
+  }, []);
+
+  /**
+   * 分批加载：每批最多 QUOTA_PAGE_SIZE 个，批与批之间串行，限制对上游的并发。
+   * Resolves true only when every batch ran to completion.
+   */
   const loadInBatches = useCallback(
-    async (targets: QuotaFileEntry[], isCancelled: () => boolean = () => false) => {
+    async (
+      targets: QuotaFileEntry[],
+      isCancelled: () => boolean = () => false,
+      options: QuotaBatchOptions = {}
+    ): Promise<boolean> => {
+      let read = targets.length > 0;
       for (let start = 0; start < targets.length; start += QUOTA_PAGE_SIZE) {
-        if (isCancelled()) return;
-        await loadQuota(targets.slice(start, start + QUOTA_PAGE_SIZE));
+        if (isCancelled()) return false;
+        const ran = await loadQuota(targets.slice(start, start + QUOTA_PAGE_SIZE), options);
+        read &&= ran;
       }
+      return read && !isCancelled();
     },
     [loadQuota]
   );
@@ -256,13 +292,48 @@ export function QuotaPage() {
   const filesSettled =
     !disableControls && !loading && !error && filesGeneration === sessionGeneration;
 
-  // Keep the recorded line continuous while the page stays open and visible.
-  useInterval(
-    () => {
-      if (document.visibilityState !== 'visible' || entries.length === 0) return;
-      void loadInBatches(entries);
+  /* ---------- 实时刷新 ---------- */
+
+  const [liveRefresh, setLiveRefresh] = useState<LiveRefreshOption>(readLiveRefresh);
+  const liveIntervalMs = liveRefreshIntervalMs(liveRefresh);
+  const liveInFlightRef = useRef(false);
+
+  // Re-read every credential in place; hidden tabs skip the tick and catch up on return.
+  const runLiveRefresh = useCallback(() => {
+    if (liveInFlightRef.current) return;
+    if (document.visibilityState !== 'visible' || entries.length === 0) return;
+    liveInFlightRef.current = true;
+    void loadInBatches(entries, undefined, { background: true })
+      .then((read) => {
+        if (read) markFullRead();
+      })
+      .finally(() => {
+        liveInFlightRef.current = false;
+      });
+  }, [entries, loadInBatches, markFullRead]);
+
+  useInterval(runLiveRefresh, filesSettled ? liveIntervalMs : null);
+
+  useEffect(() => {
+    if (!filesSettled || liveIntervalMs === null) return;
+    const handleVisibility = () => {
+      if (document.visibilityState !== 'visible') return;
+      if (isLiveRefreshDue(updatedAtRef.current, liveIntervalMs, Date.now())) runLiveRefresh();
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
+  }, [filesSettled, liveIntervalMs, runLiveRefresh]);
+
+  const handleLiveRefresh = useCallback(
+    (next: LiveRefreshOption) => {
+      setLiveRefresh(next);
+      writeLiveRefresh(next);
+      const intervalMs = liveRefreshIntervalMs(next);
+      if (filesSettled && intervalMs !== null) {
+        if (isLiveRefreshDue(updatedAtRef.current, intervalMs, Date.now())) runLiveRefresh();
+      }
     },
-    filesSettled ? FORECAST_REFRESH_MS : null
+    [filesSettled, runLiveRefresh]
   );
 
   // 进入页面后自动加载一次尚无缓存的凭证；同一会话代只触发一次。
@@ -276,13 +347,16 @@ export function QuotaPage() {
     });
     if (pending.length === 0) return;
     let cancelled = false;
-    void loadInBatches(pending, () => cancelled);
+    const full = pending.length === entries.length;
+    void loadInBatches(pending, () => cancelled).then((read) => {
+      if (read && full) markFullRead();
+    });
     return () => {
       cancelled = true;
     };
     // quotaByType 只在触发瞬间读取一次；把它放进依赖会让每次额度落地都重跑本 effect。
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filesSettled, sessionGeneration, entries, loadInBatches]);
+  }, [filesSettled, sessionGeneration, entries, loadInBatches, markFullRead]);
 
   const pendingRefreshRef = useRef<number | null>(null);
   const prevLoadingRef = useRef(loading);
@@ -316,9 +390,20 @@ export function QuotaPage() {
         disableControls
       )
     ) {
-      void loadInBatches(entries);
+      void loadInBatches(entries).then((read) => {
+        if (read) markFullRead();
+      });
     }
-  }, [disableControls, entries, error, filesGeneration, loading, loadInBatches, sessionGeneration]);
+  }, [
+    disableControls,
+    entries,
+    error,
+    filesGeneration,
+    loading,
+    loadInBatches,
+    markFullRead,
+    sessionGeneration,
+  ]);
 
   const rowActions = useMemo<QuotaRowActions>(
     () => ({
@@ -400,6 +485,9 @@ export function QuotaPage() {
         refreshing={loading || batchLoading}
         disableControls={disableControls}
         onRefreshAll={handleRefreshAll}
+        liveRefresh={liveRefresh}
+        onLiveRefreshChange={handleLiveRefresh}
+        updatedAt={updatedAt}
       />
 
       {!loading && entries.length > 0 && (
