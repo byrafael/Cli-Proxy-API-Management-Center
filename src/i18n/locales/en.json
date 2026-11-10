@@ -1712,7 +1712,36 @@
       "resets_retry": "Retry",
       "resets_detail_item": "{{label}} · expires {{date}}",
       "resets_when_limited": "Claude only allows a manual reset while the account is limited",
-      "token_refreshed": "Token refreshed"
+      "token_refreshed": "Token refreshed",
+      "back_in": "back in {{time}}"
+    },
+    "forecast": {
+      "title": "Usage forecast",
+      "hint_since": "Remaining capacity pooled per provider, recorded while this page is open since {{date}}. Dashed lines project the current pace through each reset.",
+      "hint_new": "Remaining capacity pooled per provider. Recording starts now and continues while this page is open. Dashed lines project the current pace through each reset.",
+      "all_providers": "All providers",
+      "of_capacity": "of {{value}}",
+      "legend_recorded": "Recorded",
+      "legend_projected": "Projected",
+      "total": "Total",
+      "not_recorded": "Not recorded",
+      "day_left": "{{value}} left",
+      "day_more": "~{{value}} more",
+      "day_partial": "partly recorded",
+      "day_today": "Today",
+      "day_aria_used": "{{value}} used",
+      "day_aria_projected": "about {{value}} expected",
+      "next_reset": "+{{gain}} back in {{time}}",
+      "runs_out": "Runs out in {{time}}",
+      "runs_out_refill": "Runs out in {{time}}, refills in {{refill}}",
+      "lasts": "Won't run out at this pace",
+      "pace": "~{{value}} a day",
+      "pace_basis_history": "last 24 hours",
+      "pace_basis_window": "this window's average",
+      "chart_summary": "{{name}}: {{value}} left of {{capacity}}. Use the arrow keys to read values over time.",
+      "chart_role": "chart",
+      "empty_refill": "Empty, refills in {{refill}}",
+      "empty": "Empty"
     }
   },
   "plugin_management": {

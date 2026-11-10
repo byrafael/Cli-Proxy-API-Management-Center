@@ -121,6 +121,20 @@ export const nextEventAt = (account: QuotaAccount, now: number): number => {
   return candidates.length === 0 ? Number.MAX_SAFE_INTEGER : Math.min(...candidates);
 };
 
+/**
+ * When a limited account is usable again: the latest reset among its exhausted
+ * account-wide limits, since every one of them has to come back. The Fable
+ * limit only gates one model, so it counts only when it is the sole exhausted one.
+ */
+export const recoversAt = (account: QuotaAccount, now: number): number | null => {
+  const exhausted = (limit: QuotaLimit | null): limit is QuotaLimit =>
+    limit !== null && limit.remainingPct <= LIMITED_THRESHOLD && limit.resetsAt > now;
+  const blocking = [account.fiveHour, account.weekly].filter(exhausted);
+  const limits = blocking.length > 0 ? blocking : [account.fable].filter(exhausted);
+  if (limits.length === 0) return null;
+  return Math.max(...limits.map((limit) => limit.resetsAt));
+};
+
 export const accountStatus = (account: QuotaAccount, now: number): AccountStatus => {
   if (account.disabled) return 'disabled';
   if (account.error) return 'error';
@@ -336,8 +350,8 @@ export const summarize = (accounts: QuotaAccount[], now: number): QuotaSummary =
     if (status === 'ready') ready += 1;
     if (status === 'limited') {
       limited += 1;
-      const recovery = windowEndsAt(account);
-      if (recovery !== null && recovery > now && (nextRecoveryAt === null || recovery < nextRecoveryAt)) {
+      const recovery = recoversAt(account, now);
+      if (recovery !== null && (nextRecoveryAt === null || recovery < nextRecoveryAt)) {
         nextRecoveryAt = recovery;
         nextRecoveryAccount = account;
       }

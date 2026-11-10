@@ -20,6 +20,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { IconEye, IconEyeOff, IconSearch, IconX } from '@/components/ui/icons';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { useHeaderRefresh } from '@/hooks/useHeaderRefresh';
+import { useInterval } from '@/hooks/useInterval';
 import { useNow } from '@/hooks/useNow';
 import { useRevealGroup } from '@/hooks/motion';
 import { useAuthStore, useNotificationStore, useQuotaStore, useThemeStore } from '@/stores';
@@ -28,6 +29,9 @@ import { resolveQuotaErrorMessage } from '@/utils/quota';
 import { getQuotaCacheKey } from '@/utils/quota/identity';
 import { QuotaHeader } from './components/QuotaHeader';
 import { QUOTA_PAGE_SIZE, QUOTA_TAB_ORDER } from './constants';
+import { loadHistory, recordSamples, saveHistory, type QuotaHistory } from './forecast/history';
+import { buildForecast } from './forecast/model';
+import { QuotaForecast } from './forecast/QuotaForecast';
 import { buildQuotaAccount } from './home/fromQuota';
 import {
   GROUP_BY_OPTIONS,
@@ -52,6 +56,8 @@ import styles from './QuotaPage.module.scss';
 
 const NS = 'quota_management.home';
 const SKELETON_ROWS = 6;
+/** While the page is visible, limits refresh this often so the forecast keeps recording. */
+const FORECAST_REFRESH_MS = 15 * 60_000;
 
 export function QuotaPage() {
   const { t } = useTranslation();
@@ -197,6 +203,19 @@ export function QuotaPage() {
 
   const summary = useMemo(() => summarize(allAccounts, now), [allAccounts, now]);
 
+  /* ---------- 用量记录与预测 ---------- */
+
+  const [history, setHistory] = useState<QuotaHistory>(loadHistory);
+  useEffect(() => {
+    setHistory((prev) => {
+      const next = recordSamples(prev, allAccounts, Date.now());
+      if (next !== prev) saveHistory(next);
+      return next;
+    });
+  }, [allAccounts]);
+
+  const forecast = useMemo(() => buildForecast(allAccounts, history, now), [allAccounts, history, now]);
+
   // 剪枝：文件列表落定后，各 provider 缓存只保留仍存在的凭证
   useEffect(() => {
     if (loading || error || filesGeneration !== sessionGeneration) return;
@@ -236,6 +255,15 @@ export function QuotaPage() {
 
   const filesSettled =
     !disableControls && !loading && !error && filesGeneration === sessionGeneration;
+
+  // Keep the recorded line continuous while the page stays open and visible.
+  useInterval(
+    () => {
+      if (document.visibilityState !== 'visible' || entries.length === 0) return;
+      void loadInBatches(entries);
+    },
+    filesSettled ? FORECAST_REFRESH_MS : null
+  );
 
   // 进入页面后自动加载一次尚无缓存的凭证；同一会话代只触发一次。
   const autoLoadedGenerationRef = useRef<number | null>(null);
@@ -373,6 +401,10 @@ export function QuotaPage() {
         disableControls={disableControls}
         onRefreshAll={handleRefreshAll}
       />
+
+      {!loading && entries.length > 0 && (
+        <QuotaForecast forecast={forecast} theme={resolvedTheme} />
+      )}
 
       <section className={styles.workbench}>
         <div className={styles.toolbar}>

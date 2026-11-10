@@ -1668,7 +1668,36 @@
       "resets_retry": "Thử lại",
       "resets_detail_item": "{{label}} · hết hạn {{date}}",
       "resets_when_limited": "Claude chỉ cho phép đặt lại thủ công khi tài khoản đã hết hạn mức",
-      "token_refreshed": "Token được làm mới"
+      "token_refreshed": "Token được làm mới",
+      "back_in": "có lại sau {{time}}"
+    },
+    "forecast": {
+      "title": "Dự báo mức dùng",
+      "hint_since": "Hạn mức còn lại gộp theo nhà cung cấp, được ghi khi trang này mở từ {{date}}. Đường nét đứt kéo dài tốc độ hiện tại qua mỗi lần đặt lại.",
+      "hint_new": "Hạn mức còn lại gộp theo nhà cung cấp. Bắt đầu ghi từ bây giờ, khi trang này mở. Đường nét đứt kéo dài tốc độ hiện tại qua mỗi lần đặt lại.",
+      "all_providers": "Tất cả nhà cung cấp",
+      "of_capacity": "trên {{value}}",
+      "legend_recorded": "Đã ghi",
+      "legend_projected": "Dự báo",
+      "total": "Tổng",
+      "not_recorded": "Chưa ghi",
+      "day_left": "còn {{value}}",
+      "day_more": "thêm ~{{value}}",
+      "day_partial": "ghi một phần",
+      "day_today": "Hôm nay",
+      "day_aria_used": "đã dùng {{value}}",
+      "day_aria_projected": "dự kiến khoảng {{value}}",
+      "next_reset": "+{{gain}} sau {{time}}",
+      "runs_out": "Hết sau {{time}}",
+      "runs_out_refill": "Hết sau {{time}}, có lại sau {{refill}}",
+      "lasts": "Với tốc độ này sẽ không hết",
+      "pace": "~{{value}} mỗi ngày",
+      "pace_basis_history": "24 giờ qua",
+      "pace_basis_window": "trung bình cửa sổ này",
+      "chart_summary": "{{name}}: còn {{value}} trên {{capacity}}. Dùng phím mũi tên để xem giá trị theo thời gian.",
+      "chart_role": "biểu đồ",
+      "empty_refill": "Đã hết, có lại sau {{refill}}",
+      "empty": "Đã hết"
     }
   },
   "plugin_management": {
