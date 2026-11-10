@@ -6,6 +6,10 @@
  * - requestIdRef：被超越的响应直接丢弃；
  * - cacheGeneration：断线重连后过期请求不得写入新会话缓存。
  * 提交按 provider 分组进行 —— 快的提供商先落地，不等慢的。
+ *
+ * A background load (live refresh) keeps loaded rows on screen until the new
+ * reading lands, so periodic refreshes update numbers in place instead of
+ * flashing every row back to a skeleton.
  */
 
 import { useCallback, useRef, useState } from 'react';
@@ -27,6 +31,10 @@ interface BatchFetchResult {
   errorStatus?: number;
 }
 
+export interface QuotaBatchOptions {
+  background?: boolean;
+}
+
 export function useQuotaBatchLoader() {
   const { t } = useTranslation();
   const [batchLoading, setBatchLoading] = useState(false);
@@ -34,9 +42,10 @@ export function useQuotaBatchLoader() {
   const requestIdRef = useRef(0);
 
   const loadQuota = useCallback(
-    async (targets: QuotaFileEntry[]) => {
-      if (loadingRef.current) return;
-      if (targets.length === 0) return;
+    /** Resolves false when skipped because another batch is already in flight. */
+    async (targets: QuotaFileEntry[], options: QuotaBatchOptions = {}): Promise<boolean> => {
+      if (loadingRef.current) return false;
+      if (targets.length === 0) return true;
       loadingRef.current = true;
       const requestId = ++requestIdRef.current;
       const cacheGeneration = captureQuotaCacheGeneration();
@@ -59,7 +68,9 @@ export function useQuotaBatchLoader() {
               setQuota((prev) => {
                 const nextState = { ...prev };
                 entries.forEach(({ file }) => {
-                  nextState[getQuotaCacheKey(file)] = adapter.buildLoadingState();
+                  const key = getQuotaCacheKey(file);
+                  if (options.background && prev[key]?.status === 'success') return;
+                  nextState[key] = adapter.buildLoadingState();
                 });
                 return nextState;
               });
@@ -121,6 +132,7 @@ export function useQuotaBatchLoader() {
           loadingRef.current = false;
         }
       }
+      return true;
     },
     [t]
   );

@@ -50,14 +50,19 @@ import { canRefreshQuotaAfterList, classifyQuotaFiles, type QuotaFileEntry } fro
 import { QUOTA_ADAPTERS, getQuotaSetter, type QuotaCardState } from './providers';
 import type { QuotaProviderType } from './providers/types';
 import { useQuotaActions } from './hooks/useQuotaActions';
-import { useQuotaBatchLoader } from './hooks/useQuotaBatchLoader';
+import { useQuotaBatchLoader, type QuotaBatchOptions } from './hooks/useQuotaBatchLoader';
+import {
+  isLiveRefreshDue,
+  liveRefreshIntervalMs,
+  readLiveRefresh,
+  writeLiveRefresh,
+  type LiveRefreshOption,
+} from './liveRefresh';
 import { readQuotaUiState, writeQuotaUiState } from './uiState';
 import styles from './QuotaPage.module.scss';
 
 const NS = 'quota_management.home';
 const SKELETON_ROWS = 6;
-/** While the page is visible, limits refresh this often so the forecast keeps recording. */
-const FORECAST_REFRESH_MS = 15 * 60_000;
 
 export function QuotaPage() {
   const { t } = useTranslation();
@@ -214,7 +219,15 @@ export function QuotaPage() {
     });
   }, [allAccounts]);
 
-  const forecast = useMemo(() => buildForecast(allAccounts, history, now), [allAccounts, history, now]);
+  // Last time a full read of every credential finished; drives the "updated" stamp and
+  // keeps the forecast's "now" at or past the newest recorded sample between clock ticks.
+  const [updatedAt, setUpdatedAt] = useState<number | null>(null);
+  const updatedAtRef = useRef<number | null>(null);
+  const forecastNow = Math.max(now, updatedAt ?? 0);
+  const forecast = useMemo(
+    () => buildForecast(allAccounts, history, forecastNow),
+    [allAccounts, history, forecastNow]
+  );
 
   // 剪枝：文件列表落定后，各 provider 缓存只保留仍存在的凭证
   useEffect(() => {
@@ -244,11 +257,21 @@ export function QuotaPage() {
 
   /** 分批加载：每批最多 QUOTA_PAGE_SIZE 个，批与批之间串行，限制对上游的并发。 */
   const loadInBatches = useCallback(
-    async (targets: QuotaFileEntry[], isCancelled: () => boolean = () => false) => {
+    async (
+      targets: QuotaFileEntry[],
+      isCancelled: () => boolean = () => false,
+      options: QuotaBatchOptions = {}
+    ) => {
+      let read = targets.length > 0;
       for (let start = 0; start < targets.length; start += QUOTA_PAGE_SIZE) {
         if (isCancelled()) return;
-        await loadQuota(targets.slice(start, start + QUOTA_PAGE_SIZE));
+        const ran = await loadQuota(targets.slice(start, start + QUOTA_PAGE_SIZE), options);
+        read &&= ran;
       }
+      if (isCancelled() || !read) return;
+      const finishedAt = Date.now();
+      updatedAtRef.current = finishedAt;
+      setUpdatedAt(finishedAt);
     },
     [loadQuota]
   );
@@ -256,13 +279,44 @@ export function QuotaPage() {
   const filesSettled =
     !disableControls && !loading && !error && filesGeneration === sessionGeneration;
 
-  // Keep the recorded line continuous while the page stays open and visible.
-  useInterval(
-    () => {
-      if (document.visibilityState !== 'visible' || entries.length === 0) return;
-      void loadInBatches(entries);
+  /* ---------- 实时刷新 ---------- */
+
+  const [liveRefresh, setLiveRefresh] = useState<LiveRefreshOption>(readLiveRefresh);
+  const liveIntervalMs = liveRefreshIntervalMs(liveRefresh);
+  const liveInFlightRef = useRef(false);
+
+  // Re-read every credential in place; hidden tabs skip the tick and catch up on return.
+  const runLiveRefresh = useCallback(() => {
+    if (liveInFlightRef.current) return;
+    if (document.visibilityState !== 'visible' || entries.length === 0) return;
+    liveInFlightRef.current = true;
+    void loadInBatches(entries, undefined, { background: true }).finally(() => {
+      liveInFlightRef.current = false;
+    });
+  }, [entries, loadInBatches]);
+
+  useInterval(runLiveRefresh, filesSettled ? liveIntervalMs : null);
+
+  useEffect(() => {
+    if (!filesSettled || liveIntervalMs === null) return;
+    const handleVisibility = () => {
+      if (document.visibilityState !== 'visible') return;
+      if (isLiveRefreshDue(updatedAtRef.current, liveIntervalMs, Date.now())) runLiveRefresh();
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
+  }, [filesSettled, liveIntervalMs, runLiveRefresh]);
+
+  const handleLiveRefresh = useCallback(
+    (next: LiveRefreshOption) => {
+      setLiveRefresh(next);
+      writeLiveRefresh(next);
+      const intervalMs = liveRefreshIntervalMs(next);
+      if (filesSettled && intervalMs !== null) {
+        if (isLiveRefreshDue(updatedAtRef.current, intervalMs, Date.now())) runLiveRefresh();
+      }
     },
-    filesSettled ? FORECAST_REFRESH_MS : null
+    [filesSettled, runLiveRefresh]
   );
 
   // 进入页面后自动加载一次尚无缓存的凭证；同一会话代只触发一次。
@@ -400,6 +454,9 @@ export function QuotaPage() {
         refreshing={loading || batchLoading}
         disableControls={disableControls}
         onRefreshAll={handleRefreshAll}
+        liveRefresh={liveRefresh}
+        onLiveRefreshChange={handleLiveRefresh}
+        updatedAt={updatedAt}
       />
 
       {!loading && entries.length > 0 && (
