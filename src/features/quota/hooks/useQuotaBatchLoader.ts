@@ -20,11 +20,13 @@ import { getQuotaCacheKey } from '@/utils/quota/identity';
 import type { QuotaFileEntry } from '../logic';
 import { QUOTA_ADAPTERS, getQuotaSetter, type QuotaCardState } from '../providers';
 import { enrichQuotaInBackground } from '../quotaEnrichment';
+import { claimQuotaRequest, ownsQuotaRequest } from '../requestOwnership';
 import type { QuotaProviderType } from '../providers/types';
 
 interface BatchFetchResult {
   name: string;
   cacheKey: string;
+  token: number;
   status: 'success' | 'error';
   data?: unknown;
   error?: string;
@@ -63,6 +65,7 @@ export function useQuotaBatchLoader() {
           Array.from(groups.entries()).map(async ([type, entries]) => {
             const adapter = QUOTA_ADAPTERS[type];
             const setQuota = getQuotaSetter(adapter);
+            const tokens = entries.map(({ file }) => claimQuotaRequest(getQuotaCacheKey(file)));
 
             commitIfQuotaCacheCurrent(cacheGeneration, () => {
               setQuota((prev) => {
@@ -77,16 +80,18 @@ export function useQuotaBatchLoader() {
             });
 
             const results = await Promise.all(
-              entries.map(async ({ file }): Promise<BatchFetchResult> => {
+              entries.map(async ({ file }, index): Promise<BatchFetchResult> => {
                 const cacheKey = getQuotaCacheKey(file);
+                const token = tokens[index];
                 try {
                   const data = await adapter.fetchQuota(file, t);
-                  return { name: file.name, cacheKey, status: 'success', data };
+                  return { name: file.name, cacheKey, token, status: 'success', data };
                 } catch (err: unknown) {
                   const message = err instanceof Error ? err.message : t('common.unknown_error');
                   return {
                     name: file.name,
                     cacheKey,
+                    token,
                     status: 'error',
                     error: message,
                     errorStatus: getStatusFromError(err),
@@ -101,6 +106,8 @@ export function useQuotaBatchLoader() {
             setQuota((prev) => {
               const nextState = { ...prev };
               results.forEach((result) => {
+                // A row refresh or reset started after this batch owns the slot now.
+                if (!ownsQuotaRequest(result.cacheKey, result.token)) return;
                 commitIfQuotaCacheCurrent(
                   cacheGeneration,
                   () => {

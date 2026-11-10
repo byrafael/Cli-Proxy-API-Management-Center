@@ -112,6 +112,16 @@ export function recordSamples(
   return next ?? history;
 }
 
+/** Newest sample instant across every series, or 0 with no history. */
+export function latestSampleAt(history: QuotaHistory): number {
+  let latest = 0;
+  for (const series of Object.values(history)) {
+    const last = series.points[series.points.length - 1];
+    if (last && last.t > latest) latest = last.t;
+  }
+  return latest;
+}
+
 /* ---------- 持久化：分钟精度的紧凑数组 ---------- */
 
 interface StoredHistory {

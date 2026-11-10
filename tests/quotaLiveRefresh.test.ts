@@ -18,6 +18,9 @@ import {
   readLiveRefresh,
   writeLiveRefresh,
 } from '@/features/quota/liveRefresh';
+import { claimQuotaRequest, ownsQuotaRequest } from '@/features/quota/requestOwnership';
+import { latestSampleAt, type QuotaHistory } from '@/features/quota/forecast/history';
+import { buildForecast } from '@/features/quota/forecast/model';
 
 const KEY = 'quotaPage.liveRefresh';
 const i18n = createInstance();
@@ -107,5 +110,34 @@ describe('live refresh', () => {
     expect(off).toContain('data-live="false"');
     expect(off).toContain('>Off<');
     expect(off).not.toContain('updated ');
+  });
+
+  test('a read started later owns the credential, whichever lands first', () => {
+    const background = claimQuotaRequest('codex:a.json');
+    const manual = claimQuotaRequest('codex:a.json');
+    // Manual lands first and commits; the older background response must not.
+    expect(ownsQuotaRequest('codex:a.json', manual)).toBe(true);
+    expect(ownsQuotaRequest('codex:a.json', background)).toBe(false);
+    // Other credentials are independent.
+    const other = claimQuotaRequest('codex:b.json');
+    expect(ownsQuotaRequest('codex:b.json', other)).toBe(true);
+    expect(ownsQuotaRequest('codex:a.json', manual)).toBe(true);
+  });
+
+  test('forecast now covers a sample recorded after the minute clock ticked', () => {
+    const minuteClock = Date.UTC(2026, 10, 10, 14, 0, 0);
+    const sampleAt = minuteClock + 42_000;
+    const history: QuotaHistory = {
+      'a#weekly': {
+        provider: 'codex',
+        periodHours: 168,
+        points: [{ t: sampleAt, v: 80, r: sampleAt + 3 * 86_400_000 }],
+      },
+    };
+    expect(latestSampleAt({})).toBe(0);
+    const now = Math.max(minuteClock, latestSampleAt(history));
+    expect(now).toBe(sampleAt);
+    const forecast = buildForecast([], history, now);
+    expect(forecast.span.now).toBeGreaterThanOrEqual(sampleAt);
   });
 });

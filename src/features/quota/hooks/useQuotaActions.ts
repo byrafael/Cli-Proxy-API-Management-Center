@@ -15,6 +15,7 @@ import type { AuthFileItem } from '@/types';
 import { getStatusFromError } from '@/utils/quota';
 import { getQuotaCacheKey } from '@/utils/quota/identity';
 import { enrichQuotaInBackground } from '../quotaEnrichment';
+import { claimQuotaRequest, ownsQuotaRequest } from '../requestOwnership';
 import { getQuotaMap, getQuotaSetter, type QuotaAdapter, type QuotaCardState } from '../providers';
 
 const getQuotaState = (adapter: QuotaAdapter, file: AuthFileItem): QuotaCardState | undefined =>
@@ -34,6 +35,7 @@ export function useQuotaActions(disableControls: boolean) {
       if (getQuotaState(adapter, file)?.status === 'loading') return;
       const cacheGeneration = captureQuotaCacheGeneration(file.name);
       const setQuota = getQuotaSetter(adapter);
+      const token = claimQuotaRequest(cacheKey);
 
       setQuota((prev) => ({
         ...prev,
@@ -42,6 +44,7 @@ export function useQuotaActions(disableControls: boolean) {
 
       try {
         const data = await adapter.fetchQuota(file, t);
+        if (!ownsQuotaRequest(cacheKey, token)) return;
         commitIfQuotaCacheCurrent(cacheGeneration, () => {
           const successState = adapter.buildSuccessState(data);
           setQuota((prev) => ({
@@ -54,6 +57,7 @@ export function useQuotaActions(disableControls: boolean) {
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : t('common.unknown_error');
         const status = getStatusFromError(err);
+        if (!ownsQuotaRequest(cacheKey, token)) return;
         commitIfQuotaCacheCurrent(cacheGeneration, () => {
           setQuota((prev) => ({
             ...prev,
@@ -86,14 +90,17 @@ export function useQuotaActions(disableControls: boolean) {
         onConfirm: async () => {
           const cacheGeneration = captureQuotaCacheGeneration(file.name);
           const setQuota = getQuotaSetter(adapter);
+          const token = claimQuotaRequest(cacheKey);
           setResettingQuotaName(cacheKey);
           try {
             const data = await resetQuotaFn(file, t);
             commitIfQuotaCacheCurrent(cacheGeneration, () => {
-              setQuota((prev) => ({
-                ...prev,
-                [cacheKey]: adapter.buildSuccessState(data),
-              }));
+              if (ownsQuotaRequest(cacheKey, token)) {
+                setQuota((prev) => ({
+                  ...prev,
+                  [cacheKey]: adapter.buildSuccessState(data),
+                }));
+              }
               showNotification(t('codex_quota.reset_success', { name: file.name }), 'success');
             });
           } catch (err: unknown) {

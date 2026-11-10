@@ -29,7 +29,13 @@ import { resolveQuotaErrorMessage } from '@/utils/quota';
 import { getQuotaCacheKey } from '@/utils/quota/identity';
 import { QuotaHeader } from './components/QuotaHeader';
 import { QUOTA_PAGE_SIZE, QUOTA_TAB_ORDER } from './constants';
-import { loadHistory, recordSamples, saveHistory, type QuotaHistory } from './forecast/history';
+import {
+  latestSampleAt,
+  loadHistory,
+  recordSamples,
+  saveHistory,
+  type QuotaHistory,
+} from './forecast/history';
 import { buildForecast } from './forecast/model';
 import { QuotaForecast } from './forecast/QuotaForecast';
 import { buildQuotaAccount } from './home/fromQuota';
@@ -219,11 +225,8 @@ export function QuotaPage() {
     });
   }, [allAccounts]);
 
-  // Last time a full read of every credential finished; drives the "updated" stamp and
-  // keeps the forecast's "now" at or past the newest recorded sample between clock ticks.
-  const [updatedAt, setUpdatedAt] = useState<number | null>(null);
-  const updatedAtRef = useRef<number | null>(null);
-  const forecastNow = Math.max(now, updatedAt ?? 0);
+  // The minute clock can trail the newest sample; the forecast must include it.
+  const forecastNow = useMemo(() => Math.max(now, latestSampleAt(history)), [now, history]);
   const forecast = useMemo(
     () => buildForecast(allAccounts, history, forecastNow),
     [allAccounts, history, forecastNow]
@@ -255,23 +258,33 @@ export function QuotaPage() {
   const { batchLoading, loadQuota } = useQuotaBatchLoader();
   const { resettingQuotaName, refreshQuota, resetQuota } = useQuotaActions(disableControls);
 
-  /** 分批加载：每批最多 QUOTA_PAGE_SIZE 个，批与批之间串行，限制对上游的并发。 */
+  // Last time a read of every current credential finished: the "updated" stamp and the
+  // reference for catching up when a hidden tab returns. Partial loads do not move it.
+  const [updatedAt, setUpdatedAt] = useState<number | null>(null);
+  const updatedAtRef = useRef<number | null>(null);
+  const markFullRead = useCallback(() => {
+    const finishedAt = Date.now();
+    updatedAtRef.current = finishedAt;
+    setUpdatedAt(finishedAt);
+  }, []);
+
+  /**
+   * 分批加载：每批最多 QUOTA_PAGE_SIZE 个，批与批之间串行，限制对上游的并发。
+   * Resolves true only when every batch ran to completion.
+   */
   const loadInBatches = useCallback(
     async (
       targets: QuotaFileEntry[],
       isCancelled: () => boolean = () => false,
       options: QuotaBatchOptions = {}
-    ) => {
+    ): Promise<boolean> => {
       let read = targets.length > 0;
       for (let start = 0; start < targets.length; start += QUOTA_PAGE_SIZE) {
-        if (isCancelled()) return;
+        if (isCancelled()) return false;
         const ran = await loadQuota(targets.slice(start, start + QUOTA_PAGE_SIZE), options);
         read &&= ran;
       }
-      if (isCancelled() || !read) return;
-      const finishedAt = Date.now();
-      updatedAtRef.current = finishedAt;
-      setUpdatedAt(finishedAt);
+      return read && !isCancelled();
     },
     [loadQuota]
   );
@@ -290,10 +303,14 @@ export function QuotaPage() {
     if (liveInFlightRef.current) return;
     if (document.visibilityState !== 'visible' || entries.length === 0) return;
     liveInFlightRef.current = true;
-    void loadInBatches(entries, undefined, { background: true }).finally(() => {
-      liveInFlightRef.current = false;
-    });
-  }, [entries, loadInBatches]);
+    void loadInBatches(entries, undefined, { background: true })
+      .then((read) => {
+        if (read) markFullRead();
+      })
+      .finally(() => {
+        liveInFlightRef.current = false;
+      });
+  }, [entries, loadInBatches, markFullRead]);
 
   useInterval(runLiveRefresh, filesSettled ? liveIntervalMs : null);
 
@@ -330,13 +347,16 @@ export function QuotaPage() {
     });
     if (pending.length === 0) return;
     let cancelled = false;
-    void loadInBatches(pending, () => cancelled);
+    const full = pending.length === entries.length;
+    void loadInBatches(pending, () => cancelled).then((read) => {
+      if (read && full) markFullRead();
+    });
     return () => {
       cancelled = true;
     };
     // quotaByType 只在触发瞬间读取一次；把它放进依赖会让每次额度落地都重跑本 effect。
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filesSettled, sessionGeneration, entries, loadInBatches]);
+  }, [filesSettled, sessionGeneration, entries, loadInBatches, markFullRead]);
 
   const pendingRefreshRef = useRef<number | null>(null);
   const prevLoadingRef = useRef(loading);
@@ -370,9 +390,20 @@ export function QuotaPage() {
         disableControls
       )
     ) {
-      void loadInBatches(entries);
+      void loadInBatches(entries).then((read) => {
+        if (read) markFullRead();
+      });
     }
-  }, [disableControls, entries, error, filesGeneration, loading, loadInBatches, sessionGeneration]);
+  }, [
+    disableControls,
+    entries,
+    error,
+    filesGeneration,
+    loading,
+    loadInBatches,
+    markFullRead,
+    sessionGeneration,
+  ]);
 
   const rowActions = useMemo<QuotaRowActions>(
     () => ({
