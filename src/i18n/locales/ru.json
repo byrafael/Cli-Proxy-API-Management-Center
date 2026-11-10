@@ -1717,7 +1717,36 @@
       "resets_retry": "Повтор",
       "resets_detail_item": "{{label}} · истекает {{date}}",
       "resets_when_limited": "Claude разрешает ручной сброс, только когда аккаунт достиг лимита",
-      "token_refreshed": "Обновление токена"
+      "token_refreshed": "Обновление токена",
+      "back_in": "вернётся через {{time}}"
+    },
+    "forecast": {
+      "title": "Прогноз использования",
+      "hint_since": "Остаток лимитов по провайдерам, записывается, пока страница открыта, с {{date}}. Пунктир продолжает текущий темп до каждого сброса.",
+      "hint_new": "Остаток лимитов по провайдерам. Запись начинается сейчас и идёт, пока страница открыта. Пунктир продолжает текущий темп до каждого сброса.",
+      "all_providers": "Все провайдеры",
+      "of_capacity": "из {{value}}",
+      "legend_recorded": "Записано",
+      "legend_projected": "Прогноз",
+      "total": "Итого",
+      "not_recorded": "Нет записи",
+      "day_left": "осталось {{value}}",
+      "day_more": "ещё ~{{value}}",
+      "day_partial": "записано частично",
+      "day_today": "Сегодня",
+      "day_aria_used": "использовано {{value}}",
+      "day_aria_projected": "ожидается около {{value}}",
+      "next_reset": "+{{gain}} через {{time}}",
+      "runs_out": "Закончится через {{time}}",
+      "runs_out_refill": "Закончится через {{time}}, восстановится через {{refill}}",
+      "lasts": "При таком темпе не закончится",
+      "pace": "~{{value}} в день",
+      "pace_basis_history": "за последние 24 часа",
+      "pace_basis_window": "среднее по окну",
+      "chart_summary": "{{name}}: осталось {{value}} из {{capacity}}. Стрелками можно смотреть значения во времени.",
+      "chart_role": "график",
+      "empty_refill": "Исчерпано, восстановится через {{refill}}",
+      "empty": "Исчерпано"
     }
   },
   "plugin_management": {

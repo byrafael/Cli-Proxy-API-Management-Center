@@ -1709,7 +1709,36 @@
       "resets_retry": "重试",
       "resets_detail_item": "{{label}} · {{date}} 到期",
       "resets_when_limited": "Claude 只允许在账号被限额时使用手动重置",
-      "token_refreshed": "令牌刷新时间"
+      "token_refreshed": "令牌刷新时间",
+      "back_in": "{{time}}后恢复"
+    },
+    "forecast": {
+      "title": "用量预测",
+      "hint_since": "按提供商汇总的剩余额度，自 {{date}} 起在本页打开时记录。虚线按当前速度推演到每次重置。",
+      "hint_new": "按提供商汇总的剩余额度。从现在开始在本页打开时记录。虚线按当前速度推演到每次重置。",
+      "all_providers": "全部提供商",
+      "of_capacity": "/ {{value}}",
+      "legend_recorded": "已记录",
+      "legend_projected": "预测",
+      "total": "合计",
+      "not_recorded": "未记录",
+      "day_left": "剩余 {{value}}",
+      "day_more": "约再用 {{value}}",
+      "day_partial": "部分记录",
+      "day_today": "今天",
+      "day_aria_used": "已用 {{value}}",
+      "day_aria_projected": "预计用 {{value}}",
+      "next_reset": "{{time}}后恢复 +{{gain}}",
+      "runs_out": "{{time}}后用完",
+      "runs_out_refill": "{{time}}后用完，{{refill}}后恢复",
+      "lasts": "按当前速度不会用完",
+      "pace": "约每天 {{value}}",
+      "pace_basis_history": "近 24 小时",
+      "pace_basis_window": "本窗口平均",
+      "chart_summary": "{{name}}：剩余 {{value}}，共 {{capacity}}。用方向键查看各时刻的数值。",
+      "chart_role": "图表",
+      "empty_refill": "已用完，{{refill}}后恢复",
+      "empty": "已用完"
     }
   },
   "plugin_management": {

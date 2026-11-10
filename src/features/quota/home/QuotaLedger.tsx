@@ -9,8 +9,10 @@ import { useMemo, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { IconChevronDown, IconPencil } from '@/components/ui/icons';
 import {
   PROVIDER_LABEL,
+  accountStatus,
   accountTitle,
   groupAccounts,
+  recoversAt,
   redactEmailsIn,
   type QuotaAccount,
 } from './model';
@@ -52,10 +54,11 @@ function LedgerRow({
   LedgerProps,
   'now' | 'redact' | 'theme' | 'actions' | 'renderResets'
 >) {
-  const { t, absolute } = useQuotaFormat();
+  const { t, absolute, countdown } = useQuotaFormat();
   const loaded = !account.pending && !account.error && !account.disabled;
   const placeholder = account.pending ? '…' : '—';
   const title = accountTitle(account, redact);
+  const backAt = accountStatus(account, now) === 'limited' ? recoversAt(account, now) : null;
   const errorText = account.error && redact ? redactEmailsIn(account.error) : account.error;
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState('');
@@ -124,6 +127,14 @@ function LedgerRow({
             <span className={styles.email}>
               {PROVIDER_LABEL[account.provider]}
               {title.secondary !== PROVIDER_LABEL[account.provider] && ` · ${title.secondary}`}
+              {backAt !== null && (
+                <>
+                  {' · '}
+                  <span className={styles.backIn} title={absolute(backAt)}>
+                    {t(`${NS}.back_in`, { time: countdown(backAt - now) })}
+                  </span>
+                </>
+              )}
             </span>
             {account.error && (
               <span className={styles.errorText} title={errorText ?? undefined}>

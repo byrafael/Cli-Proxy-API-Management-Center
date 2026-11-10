@@ -1737,7 +1737,36 @@
       "resets_retry": "重試",
       "resets_detail_item": "{{label}} · {{date}} 到期",
       "resets_when_limited": "Claude 只允許在帳號被限額時使用手動重置",
-      "token_refreshed": "Token 刷新時間"
+      "token_refreshed": "Token 刷新時間",
+      "back_in": "{{time}}後恢復"
+    },
+    "forecast": {
+      "title": "用量預測",
+      "hint_since": "按供應商彙總的剩餘額度，自 {{date}} 起在本頁開啟時記錄。虛線按目前速度推演到每次重置。",
+      "hint_new": "按供應商彙總的剩餘額度。從現在開始在本頁開啟時記錄。虛線按目前速度推演到每次重置。",
+      "all_providers": "全部供應商",
+      "of_capacity": "/ {{value}}",
+      "legend_recorded": "已記錄",
+      "legend_projected": "預測",
+      "total": "合計",
+      "not_recorded": "未記錄",
+      "day_left": "剩餘 {{value}}",
+      "day_more": "約再用 {{value}}",
+      "day_partial": "部分記錄",
+      "day_today": "今天",
+      "day_aria_used": "已用 {{value}}",
+      "day_aria_projected": "預計用 {{value}}",
+      "next_reset": "{{time}}後恢復 +{{gain}}",
+      "runs_out": "{{time}}後用完",
+      "runs_out_refill": "{{time}}後用完，{{refill}}後恢復",
+      "lasts": "按目前速度不會用完",
+      "pace": "約每天 {{value}}",
+      "pace_basis_history": "近 24 小時",
+      "pace_basis_window": "本視窗平均",
+      "chart_summary": "{{name}}：剩餘 {{value}}，共 {{capacity}}。用方向鍵查看各時刻的數值。",
+      "chart_role": "圖表",
+      "empty_refill": "已用完，{{refill}}後恢復",
+      "empty": "已用完"
     }
   },
   "plugin_management": {

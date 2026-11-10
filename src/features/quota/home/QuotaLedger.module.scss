@@ -204,6 +204,12 @@
   white-space: nowrap;
 }
 
+.backIn {
+  color: var(--error-color);
+  font-family: inherit;
+  font-variant-numeric: tabular-nums;
+}
+
 .lastRefresh {
   font-size: 11.5px;
   color: var(--text-tertiary);

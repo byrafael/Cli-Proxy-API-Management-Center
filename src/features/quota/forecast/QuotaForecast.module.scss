@@ -1,0 +1,509 @@
+/* ============================================================
+ * 用量预测：全提供商堆叠图 + 每个提供商一张卡。
+ * 提供商色按固定顺序分配，两套主题各自校验过色盲区分度。
+ * ============================================================ */
+
+.forecast {
+  --forecast-claude: #eb6834;
+  --forecast-antigravity: #1baf7a;
+  --forecast-codex: #2a78d6;
+  --forecast-xai: #eda100;
+  --forecast-kimi: #e87ba4;
+  --forecast-devin: #008300;
+  --forecast-meta: #6250d6;
+  --forecast-plugin: #e34948;
+
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+
+:global([data-theme='dark']) .forecast {
+  --forecast-claude: #d95926;
+  --forecast-antigravity: #199e70;
+  --forecast-codex: #3987e5;
+  --forecast-xai: #c98500;
+  --forecast-kimi: #d55181;
+  --forecast-devin: #008300;
+  --forecast-meta: #9085e9;
+  --forecast-plugin: #e66767;
+}
+
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 14px;
+
+  h2 {
+    margin: 0;
+    font-size: 17px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  p {
+    margin: 0;
+    font-size: 13px;
+    color: var(--text-tertiary);
+  }
+}
+
+/* ---------- 卡片 ---------- */
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  padding: 20px 22px 16px;
+  border: 1px solid var(--border-color);
+  border-radius: 20px;
+  background: var(--bg-primary);
+}
+
+.totalCard {
+  display: grid;
+  grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
+  gap: 8px 28px;
+  padding: 24px 26px 18px;
+}
+
+.totalSide {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.totalChart {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 460px), 1fr));
+  gap: 14px;
+}
+
+.cardHead {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  min-width: 0;
+
+  h3 {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+}
+
+.count {
+  font-size: 13px;
+  color: var(--text-tertiary);
+}
+
+.pace {
+  display: inline-flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 2px 6px;
+  margin-left: auto;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+
+  .totalSide & {
+    margin-left: 0;
+  }
+}
+
+.paceBasis {
+  font-weight: 400;
+  color: var(--text-tertiary);
+}
+
+.figure {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  margin: 4px 0 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.figureValue {
+  font-size: 44px;
+  font-weight: 650;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  color: var(--text-primary);
+
+  .totalCard & {
+    font-size: 54px;
+  }
+}
+
+.figureOf {
+  font-size: 15px;
+  color: var(--text-tertiary);
+}
+
+.facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 14px;
+  margin: 0;
+  min-height: 18px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+
+  .totalSide & {
+    flex-direction: column;
+    margin-top: auto;
+  }
+}
+
+.factWarn {
+  color: var(--error-color);
+}
+
+.providerKey {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 10px 0 6px;
+  padding: 0;
+  list-style: none;
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+
+  li {
+    display: grid;
+    grid-template-columns: 10px 1fr auto auto;
+    align-items: center;
+    gap: 8px;
+  }
+
+  i {
+    width: 10px;
+    height: 10px;
+    border-radius: 3px;
+  }
+
+  b {
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+}
+
+.providerKeyOf {
+  color: var(--text-tertiary);
+}
+
+.cardFoot {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 6px;
+}
+
+.lineLegend {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px 18px;
+  font-size: 12.5px;
+  color: var(--text-tertiary);
+
+  span {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+  }
+}
+
+.keySolid,
+.keyDashed {
+  width: 18px;
+  height: 0;
+  border-top: 2px solid var(--text-secondary);
+}
+
+.keyDashed {
+  border-top-style: dashed;
+}
+
+.keyFill,
+.keyFillFaint {
+  width: 14px;
+  height: 10px;
+  border-radius: 3px;
+  background: var(--text-secondary);
+}
+
+.keyFillFaint {
+  opacity: 0.35;
+}
+
+/* ---------- 图 ---------- */
+
+.chart {
+  position: relative;
+  margin-top: 4px;
+  min-width: 0;
+  border-radius: 12px;
+  outline: none;
+
+  &:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 4px;
+  }
+}
+
+.svg {
+  display: block;
+  max-width: 100%;
+  overflow: visible;
+  touch-action: pan-y;
+}
+
+.gridline,
+.dayline {
+  stroke: var(--border-color);
+  stroke-width: 1;
+}
+
+.dayline {
+  stroke-dasharray: 2 4;
+  opacity: 0.7;
+}
+
+.baseline {
+  stroke: var(--border-primary);
+  stroke-width: 1;
+}
+
+.tickLabel,
+.resetLabel,
+.nowLabel {
+  font-size: 11.5px;
+  fill: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+
+.resetLabel {
+  font-weight: 600;
+  fill: var(--text-secondary);
+  paint-order: stroke;
+  stroke: var(--bg-primary);
+  stroke-width: 4px;
+  stroke-linejoin: round;
+}
+
+.nowLabel {
+  fill: var(--text-secondary);
+}
+
+.recordedLine,
+.projectedLine {
+  fill: none;
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.projectedLine {
+  stroke-dasharray: 6 5;
+  stroke-linecap: butt;
+}
+
+.nowLine {
+  stroke: var(--text-tertiary);
+  stroke-width: 1;
+}
+
+.nowDot {
+  stroke: var(--bg-primary);
+  stroke-width: 2.5;
+}
+
+.cursor line {
+  stroke: var(--text-secondary);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}
+
+.tooltip {
+  position: absolute;
+  z-index: 3;
+  min-width: 150px;
+  padding: 9px 11px;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  background: var(--floating-surface);
+  box-shadow: var(--floating-shadow);
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+
+.tooltipTime {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 6px;
+  font-weight: 600;
+  color: var(--text-primary);
+
+  span {
+    font-weight: 400;
+    color: var(--text-tertiary);
+  }
+}
+
+.tooltipRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  line-height: 1.7;
+
+  i {
+    width: 8px;
+    height: 8px;
+    border-radius: 2px;
+  }
+
+  b {
+    margin-left: auto;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+}
+
+.tooltipTotal {
+  margin-top: 4px;
+  padding-top: 4px;
+  border-top: 1px solid var(--border-color);
+}
+
+.tooltipEmpty {
+  color: var(--text-tertiary);
+}
+
+/* ---------- 日带 ---------- */
+
+.days {
+  position: relative;
+  height: 58px;
+  margin: 2px 14px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.daysCompact {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+  height: auto;
+  margin-left: 0 !important;
+  margin-right: 0;
+
+  .day {
+    position: static;
+    padding-bottom: 6px;
+  }
+}
+
+.day {
+  position: absolute;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  padding: 7px 2px 0;
+  border-top: 2px solid transparent;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.day_past {
+  border-top-color: color-mix(in srgb, var(--series) 55%, transparent);
+}
+
+.day_today {
+  border-top-color: var(--series);
+  background: color-mix(in srgb, var(--text-primary) 4%, transparent);
+  border-radius: 0 0 8px 8px;
+
+  .dayName {
+    color: var(--text-primary);
+    font-weight: 600;
+  }
+}
+
+.day_future {
+  border-top: 2px dashed color-mix(in srgb, var(--series) 70%, transparent);
+
+  .dayUsed {
+    color: var(--text-secondary);
+  }
+}
+
+.dayName {
+  font-size: 11.5px;
+  color: var(--text-tertiary);
+}
+
+.dayUsed {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.dayDetail {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+/* ---------- 窄屏 ---------- */
+
+@media (max-width: 900px) {
+  .totalCard {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .totalSide .facts {
+    margin-top: 0;
+  }
+}
+
+@media (max-width: 520px) {
+  .card,
+  .totalCard {
+    padding: 16px 14px 12px;
+    border-radius: 16px;
+  }
+
+  .figureValue {
+    font-size: 36px;
+
+    .totalCard & {
+      font-size: 42px;
+    }
+  }
+}

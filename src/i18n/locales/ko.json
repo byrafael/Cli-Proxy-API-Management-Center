@@ -1712,7 +1712,36 @@
       "resets_retry": "재시도",
       "resets_detail_item": "{{label}} · {{date}} 만료",
       "resets_when_limited": "Claude는 계정이 한도에 도달했을 때만 수동 초기화를 허용합니다",
-      "token_refreshed": "토큰 갱신"
+      "token_refreshed": "토큰 갱신",
+      "back_in": "{{time}} 후 복구"
+    },
+    "forecast": {
+      "title": "사용량 예측",
+      "hint_since": "제공자별로 합친 남은 한도이며, {{date}}부터 이 페이지가 열려 있을 때 기록됩니다. 점선은 현재 속도를 각 재설정까지 이어 예측합니다.",
+      "hint_new": "제공자별로 합친 남은 한도입니다. 지금부터 이 페이지가 열려 있을 때 기록합니다. 점선은 현재 속도를 각 재설정까지 이어 예측합니다.",
+      "all_providers": "모든 제공자",
+      "of_capacity": "/ {{value}}",
+      "legend_recorded": "기록됨",
+      "legend_projected": "예측",
+      "total": "합계",
+      "not_recorded": "기록 없음",
+      "day_left": "{{value}} 남음",
+      "day_more": "~{{value}} 더",
+      "day_partial": "일부 기록",
+      "day_today": "오늘",
+      "day_aria_used": "{{value}} 사용",
+      "day_aria_projected": "약 {{value}} 예상",
+      "next_reset": "{{time}} 후 +{{gain}}",
+      "runs_out": "{{time}} 후 소진",
+      "runs_out_refill": "{{time}} 후 소진, {{refill}} 후 복구",
+      "lasts": "이 속도로는 소진되지 않음",
+      "pace": "하루 ~{{value}}",
+      "pace_basis_history": "최근 24시간",
+      "pace_basis_window": "이번 창 평균",
+      "chart_summary": "{{name}}: {{capacity}} 중 {{value}} 남음. 화살표 키로 시간별 값을 볼 수 있습니다.",
+      "chart_role": "차트",
+      "empty_refill": "소진됨, {{refill}} 후 복구",
+      "empty": "소진됨"
     }
   },
   "plugin_management": {
