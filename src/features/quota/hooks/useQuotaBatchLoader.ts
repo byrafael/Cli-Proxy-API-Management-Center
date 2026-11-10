@@ -7,9 +7,9 @@
  * - cacheGeneration：断线重连后过期请求不得写入新会话缓存。
  * 提交按 provider 分组进行 —— 快的提供商先落地，不等慢的。
  *
- * A background load (live refresh) keeps loaded rows on screen until the new
- * reading lands, so periodic refreshes update numbers in place instead of
- * flashing every row back to a skeleton.
+ * A background load (live refresh) shows no loading state, so periodic reads
+ * update numbers in place, and it yields to any foreground write on the same
+ * credential (see requestOwnership.ts).
  */
 
 import { useCallback, useRef, useState } from 'react';
@@ -20,13 +20,12 @@ import { getQuotaCacheKey } from '@/utils/quota/identity';
 import type { QuotaFileEntry } from '../logic';
 import { QUOTA_ADAPTERS, getQuotaSetter, type QuotaCardState } from '../providers';
 import { enrichQuotaInBackground } from '../quotaEnrichment';
-import { claimQuotaRequest, ownsQuotaRequest } from '../requestOwnership';
+import { beginQuotaRead, beginQuotaWrite } from '../requestOwnership';
 import type { QuotaProviderType } from '../providers/types';
 
 interface BatchFetchResult {
   name: string;
   cacheKey: string;
-  token: number;
   status: 'success' | 'error';
   data?: unknown;
   error?: string;
@@ -65,72 +64,88 @@ export function useQuotaBatchLoader() {
           Array.from(groups.entries()).map(async ([type, entries]) => {
             const adapter = QUOTA_ADAPTERS[type];
             const setQuota = getQuotaSetter(adapter);
-            const tokens = entries.map(({ file }) => claimQuotaRequest(getQuotaCacheKey(file)));
+            const claims = entries.flatMap((entry) => {
+              const cacheKey = getQuotaCacheKey(entry.file);
+              if (options.background) {
+                const canCommit = beginQuotaRead(cacheKey);
+                return canCommit ? [{ entry, cacheKey, canCommit, end: () => {} }] : [];
+              }
+              const write = beginQuotaWrite(cacheKey);
+              return [{ entry, cacheKey, canCommit: write.owns, end: write.end }];
+            });
+            if (claims.length === 0) return;
 
-            commitIfQuotaCacheCurrent(cacheGeneration, () => {
+            try {
+              if (!options.background) {
+                commitIfQuotaCacheCurrent(cacheGeneration, () => {
+                  setQuota((prev) => {
+                    const nextState = { ...prev };
+                    claims.forEach(({ cacheKey }) => {
+                      nextState[cacheKey] = adapter.buildLoadingState();
+                    });
+                    return nextState;
+                  });
+                });
+              }
+
+              const results = await Promise.all(
+                claims.map(async ({ entry: { file }, cacheKey }): Promise<BatchFetchResult> => {
+                  try {
+                    const data = await adapter.fetchQuota(file, t);
+                    return { name: file.name, cacheKey, status: 'success', data };
+                  } catch (err: unknown) {
+                    const message = err instanceof Error ? err.message : t('common.unknown_error');
+                    return {
+                      name: file.name,
+                      cacheKey,
+                      status: 'error',
+                      error: message,
+                      errorStatus: getStatusFromError(err),
+                    };
+                  }
+                })
+              );
+
+              if (requestId !== requestIdRef.current) return;
+
+              const committedStates = new Map<string, QuotaCardState>();
               setQuota((prev) => {
                 const nextState = { ...prev };
-                entries.forEach(({ file }) => {
-                  const key = getQuotaCacheKey(file);
-                  if (options.background && prev[key]?.status === 'success') return;
-                  nextState[key] = adapter.buildLoadingState();
+                results.forEach((result, index) => {
+                  // A later foreground write owns this credential now.
+                  if (!claims[index].canCommit()) return;
+                  commitIfQuotaCacheCurrent(
+                    cacheGeneration,
+                    () => {
+                      nextState[result.cacheKey] =
+                        result.status === 'success'
+                          ? adapter.buildSuccessState(result.data)
+                          : adapter.buildErrorState(
+                              result.error || t('common.unknown_error'),
+                              result.errorStatus
+                            );
+                      committedStates.set(result.cacheKey, nextState[result.cacheKey]);
+                    },
+                    result.name
+                  );
                 });
                 return nextState;
               });
-            });
-
-            const results = await Promise.all(
-              entries.map(async ({ file }, index): Promise<BatchFetchResult> => {
-                const cacheKey = getQuotaCacheKey(file);
-                const token = tokens[index];
-                try {
-                  const data = await adapter.fetchQuota(file, t);
-                  return { name: file.name, cacheKey, token, status: 'success', data };
-                } catch (err: unknown) {
-                  const message = err instanceof Error ? err.message : t('common.unknown_error');
-                  return {
-                    name: file.name,
-                    cacheKey,
-                    token,
-                    status: 'error',
-                    error: message,
-                    errorStatus: getStatusFromError(err),
-                  };
+              results.forEach((result, index) => {
+                const state = committedStates.get(result.cacheKey);
+                if (result.status === 'success' && state) {
+                  void enrichQuotaInBackground(
+                    adapter,
+                    claims[index].entry.file,
+                    result.data,
+                    state,
+                    t
+                  );
                 }
-              })
-            );
-
-            if (requestId !== requestIdRef.current) return;
-
-            const committedStates = new Map<string, QuotaCardState>();
-            setQuota((prev) => {
-              const nextState = { ...prev };
-              results.forEach((result) => {
-                // A row refresh or reset started after this batch owns the slot now.
-                if (!ownsQuotaRequest(result.cacheKey, result.token)) return;
-                commitIfQuotaCacheCurrent(
-                  cacheGeneration,
-                  () => {
-                    nextState[result.cacheKey] =
-                      result.status === 'success'
-                        ? adapter.buildSuccessState(result.data)
-                        : adapter.buildErrorState(
-                            result.error || t('common.unknown_error'),
-                            result.errorStatus
-                          );
-                    committedStates.set(result.cacheKey, nextState[result.cacheKey]);
-                  },
-                  result.name
-                );
               });
-              return nextState;
-            });
-            results.forEach((result, index) => {
-              const state = committedStates.get(result.cacheKey);
-              if (result.status === 'success' && state) {
-                void enrichQuotaInBackground(adapter, entries[index].file, result.data, state, t);
-              }
-            });
+            } finally {
+              claims.forEach(({ end }) => end());
+            }
           })
         );
       } finally {

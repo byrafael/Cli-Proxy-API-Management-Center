@@ -1,22 +1,72 @@
 /**
- * Per-credential request ownership: the most recently started quota read for a
- * credential owns its cache slot. Batch loads, live refresh, row refresh and
- * Codex reset each claim before fetching and commit only while they still own
- * the slot, so an older response can never overwrite a newer one.
+ * Per-credential ordering for quota cache writes.
+ *
+ * Foreground writes — row refresh, Codex reset, Refresh all, the page's first
+ * load, and the Auth Files quota actions — claim the credential. The most
+ * recently started one owns the slot and is the only one allowed to commit.
+ *
+ * Background reads (live refresh) claim nothing. They skip a credential while a
+ * foreground write is in flight, and commit only if no write started since,
+ * so a periodic poll can never overwrite or discard a user's action.
  *
  * Session isolation stays with the cache generation in useQuotaStore; this
  * only orders requests within a session.
  */
 
+import type { QuotaAdapter, QuotaMapUpdater } from './providers';
+
 const latestByKey = new Map<string, number>();
+const activeByKey = new Map<string, number>();
 let sequence = 0;
 
-export function claimQuotaRequest(cacheKey: string): number {
-  sequence += 1;
-  latestByKey.set(cacheKey, sequence);
-  return sequence;
+export interface QuotaWrite {
+  /** True while no later foreground write has started for this credential. */
+  owns: () => boolean;
+  /** Call once the write has committed or given up. Idempotent. */
+  end: () => void;
 }
 
-export function ownsQuotaRequest(cacheKey: string, token: number): boolean {
-  return latestByKey.get(cacheKey) === token;
+export function beginQuotaWrite(cacheKey: string): QuotaWrite {
+  sequence += 1;
+  const token = sequence;
+  latestByKey.set(cacheKey, token);
+  activeByKey.set(cacheKey, (activeByKey.get(cacheKey) ?? 0) + 1);
+  let ended = false;
+  return {
+    owns: () => latestByKey.get(cacheKey) === token,
+    end: () => {
+      if (ended) return;
+      ended = true;
+      const remaining = (activeByKey.get(cacheKey) ?? 1) - 1;
+      if (remaining <= 0) activeByKey.delete(cacheKey);
+      else activeByKey.set(cacheKey, remaining);
+    },
+  };
+}
+
+/**
+ * Start a background read. Returns null while a foreground write is in flight;
+ * otherwise a check that stays true until a foreground write starts.
+ */
+export function beginQuotaRead(cacheKey: string): (() => boolean) | null {
+  if (activeByKey.has(cacheKey)) return null;
+  const seen = latestByKey.get(cacheKey) ?? 0;
+  return () => !activeByKey.has(cacheKey) && (latestByKey.get(cacheKey) ?? 0) === seen;
+}
+
+/**
+ * A failed mutation that superseded an in-flight read must not strand the row in
+ * `loading`: the superseded read will never commit, so leave a terminal error.
+ */
+export function settleSupersededLoading(
+  setQuota: QuotaMapUpdater,
+  adapter: QuotaAdapter,
+  cacheKey: string,
+  message: string
+): void {
+  setQuota((prev) =>
+    prev[cacheKey]?.status === 'loading'
+      ? { ...prev, [cacheKey]: adapter.buildErrorState(message) }
+      : prev
+  );
 }

@@ -18,7 +18,12 @@ import {
   readLiveRefresh,
   writeLiveRefresh,
 } from '@/features/quota/liveRefresh';
-import { claimQuotaRequest, ownsQuotaRequest } from '@/features/quota/requestOwnership';
+import {
+  beginQuotaRead,
+  beginQuotaWrite,
+  settleSupersededLoading,
+} from '@/features/quota/requestOwnership';
+import type { QuotaAdapter, QuotaCardState } from '@/features/quota/providers';
 import { latestSampleAt, type QuotaHistory } from '@/features/quota/forecast/history';
 import { buildForecast } from '@/features/quota/forecast/model';
 
@@ -112,16 +117,52 @@ describe('live refresh', () => {
     expect(off).not.toContain('updated ');
   });
 
-  test('a read started later owns the credential, whichever lands first', () => {
-    const background = claimQuotaRequest('codex:a.json');
-    const manual = claimQuotaRequest('codex:a.json');
-    // Manual lands first and commits; the older background response must not.
-    expect(ownsQuotaRequest('codex:a.json', manual)).toBe(true);
-    expect(ownsQuotaRequest('codex:a.json', background)).toBe(false);
-    // Other credentials are independent.
-    const other = claimQuotaRequest('codex:b.json');
-    expect(ownsQuotaRequest('codex:b.json', other)).toBe(true);
-    expect(ownsQuotaRequest('codex:a.json', manual)).toBe(true);
+  test('a later foreground write owns the credential, whichever lands first', () => {
+    const first = beginQuotaWrite('own:a');
+    const second = beginQuotaWrite('own:a');
+    expect(second.owns()).toBe(true);
+    expect(first.owns()).toBe(false);
+    first.end();
+    second.end();
+    const other = beginQuotaWrite('own:b');
+    expect(other.owns()).toBe(true);
+    other.end();
+  });
+
+  test('a background read in flight yields to a manual write from any page', () => {
+    const canCommit = beginQuotaRead('own:c');
+    expect(canCommit).not.toBeNull();
+    const manual = beginQuotaWrite('own:c');
+    manual.end();
+    // The manual result landed first; the older poll must not overwrite it.
+    expect(canCommit?.()).toBe(false);
+  });
+
+  test('a poll never starts while a reset is in flight', () => {
+    const reset = beginQuotaWrite('own:d');
+    expect(beginQuotaRead('own:d')).toBeNull();
+    expect(reset.owns()).toBe(true);
+    reset.end();
+    reset.end();
+    const poll = beginQuotaRead('own:d');
+    expect(poll?.()).toBe(true);
+  });
+
+  test('a failed reset settles a row a superseded read left loading', () => {
+    let map: Record<string, QuotaCardState> = {
+      loading: { status: 'loading' } as QuotaCardState,
+      loaded: { status: 'success' } as QuotaCardState,
+    };
+    const setQuota = (update: (prev: typeof map) => typeof map) => {
+      map = update(map);
+    };
+    const adapter = {
+      buildErrorState: (message: string) => ({ status: 'error', error: message }),
+    } as unknown as QuotaAdapter;
+    settleSupersededLoading(setQuota, adapter, 'loading', 'reset failed');
+    settleSupersededLoading(setQuota, adapter, 'loaded', 'reset failed');
+    expect(map.loading).toEqual({ status: 'error', error: 'reset failed' } as QuotaCardState);
+    expect(map.loaded.status).toBe('success');
   });
 
   test('forecast now covers a sample recorded after the minute clock ticked', () => {
