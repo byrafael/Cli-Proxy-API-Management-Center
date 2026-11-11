@@ -3,8 +3,9 @@
  * (dashed) to the horizon, reset jumps labelled, and a day strip aligned to the
  * time axis that reads out each day's use.
  *
- * One band draws a line with a soft area; several bands stack (the all-providers
- * chart). Hover or arrow keys move a crosshair that reads values at that instant.
+ * One band draws a line with a soft area. Several bands (the all-providers chart)
+ * overlap, each measured from the real zero, with an optional total line above
+ * them. Hover or arrow keys move a crosshair that reads values at that instant.
  */
 
 import {
@@ -20,6 +21,7 @@ import { useTranslation } from 'react-i18next';
 import { DAY, HOUR } from '../home/model';
 import { useQuotaFormat } from '../home/useQuotaFormat';
 import {
+  axisTicks,
   dayBounds,
   valueAt,
   type ChartPoint,
@@ -43,6 +45,8 @@ interface ForecastChartProps {
   span: ForecastSpan;
   capacity: number;
   bands: ChartBand[];
+  /** Sum of every band, drawn as a neutral line over them. */
+  total?: ChartBand;
   recordedResets?: ResetMark[];
   projectedResets?: ResetMark[];
   days: DayUsage[];
@@ -52,12 +56,13 @@ interface ForecastChartProps {
 }
 
 const MARGIN = { top: 30, right: 14, bottom: 8, left: 50 };
-const STACK_SAMPLES = 220;
 const LABEL_MIN_GAP = 46;
 /** Refills smaller than this (a five-hour window topping up) stay unlabelled. */
 const LABEL_MIN_GAIN = 5;
-/** Below this width a day column can't hold its figures. */
-const MIN_DAY_PX = 56;
+/** Day columns narrower than these drop their detail line, figure, or name. */
+const DAY_FULL_PX = 68;
+const DAY_FIGURE_PX = 40;
+const DAY_NAME_PX = 20;
 
 const pct = (value: number) => `${Math.round(value).toLocaleString()}%`;
 
@@ -93,6 +98,7 @@ export function ForecastChart({
   span,
   capacity,
   bands,
+  total,
   recordedResets = [],
   projectedResets = [],
   days,
@@ -107,17 +113,18 @@ export function ForecastChart({
 
   const plotW = Math.max(120, width - MARGIN.left - MARGIN.right);
   const plotH = height - MARGIN.top - MARGIN.bottom;
-  const stacked = bands.length > 1;
+  const single = bands.length === 1 ? bands[0] : null;
+  const lineBands = useMemo(() => (total ? [...bands, total] : bands), [bands, total]);
 
-  const yMax = useMemo(() => {
+  const ticks = useMemo(() => {
     let max = capacity;
-    if (stacked) return Math.max(max, 1);
-    bands.forEach((band) => {
+    lineBands.forEach((band) => {
       band.recorded.forEach((point) => (max = Math.max(max, point.v)));
       band.projected.forEach((point) => (max = Math.max(max, point.v)));
     });
-    return Math.max(max, 1);
-  }, [bands, capacity, stacked]);
+    return axisTicks(max);
+  }, [lineBands, capacity]);
+  const yMax = ticks[ticks.length - 1];
 
   const x = (time: number) => MARGIN.left + ((time - span.from) / (span.to - span.from)) * plotW;
   const y = (value: number) => MARGIN.top + plotH - (Math.max(0, value) / yMax) * plotH;
@@ -125,54 +132,28 @@ export function ForecastChart({
     span.from + ((px - MARGIN.left) / plotW) * (span.to - span.from);
   const nowX = x(span.now);
 
-  /* ---------- 几何 ---------- */
+  /* ---------- 几何：每条线都从真实的零点量起 ---------- */
 
-  const geometry = useMemo(() => {
-    if (!stacked) {
-      return bands.map((band) => {
+  const geometry = useMemo(
+    () =>
+      lineBands.map((band) => {
         const recorded = band.recorded.map((p) => [x(p.t), y(p.v)] as [number, number]);
         const projected = band.projected.map((p) => [x(p.t), y(p.v)] as [number, number]);
         const base = (pts: [number, number][]): [number, number][] =>
           pts.length ? [[pts[0][0], y(0)], [pts[pts.length - 1][0], y(0)]] : [];
         return {
           band,
+          isTotal: band === total,
           recordedLine: linePath(recorded),
           projectedLine: linePath(projected),
           recordedArea: areaPath(recorded, base(recorded)),
           projectedArea: areaPath(projected, base(projected)),
         };
-      });
-    }
-    // Stack on a shared grid; a band with no reading at an instant adds nothing.
-    const sample = (from: number, to: number) => {
-      const n = Math.max(2, Math.round((STACK_SAMPLES * (to - from)) / (span.to - span.from)));
-      return Array.from({ length: n + 1 }, (_, i) => from + ((to - from) * i) / n);
-    };
-    const pastTimes = sample(span.from, span.now);
-    const futureTimes = sample(span.now, span.to);
-    const below = { past: pastTimes.map(() => 0), future: futureTimes.map(() => 0) };
-    return bands.map((band) => {
-      const pastLower = below.past.slice();
-      const futureLower = below.future.slice();
-      pastTimes.forEach((time, i) => (below.past[i] += valueAt(band.recorded, time) ?? 0));
-      futureTimes.forEach((time, i) => (below.future[i] += valueAt(band.projected, time) ?? 0));
-      const pastTop = pastTimes.map((time, i) => [x(time), y(below.past[i])] as [number, number]);
-      const pastBottom = pastTimes.map((time, i) => [x(time), y(pastLower[i])] as [number, number]);
-      const futureTop = futureTimes.map((time, i) => [x(time), y(below.future[i])] as [number, number]);
-      const futureBottom = futureTimes.map(
-        (time, i) => [x(time), y(futureLower[i])] as [number, number]
-      );
-      return {
-        band,
-        recordedLine: linePath(pastTop),
-        projectedLine: linePath(futureTop),
-        recordedArea: areaPath(pastTop, pastBottom),
-        projectedArea: areaPath(futureTop, futureBottom),
-      };
-    });
+      }),
     // x / y derive from span, width and yMax, all listed.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bands, stacked, span, plotW, plotH, yMax]);
+    [lineBands, total, span, plotW, plotH, yMax]
+  );
 
   const dayCells = useMemo(
     () =>
@@ -188,8 +169,8 @@ export function ForecastChart({
   /* ---------- 重置标注（避免互相压住） ---------- */
 
   const resetLabels = useMemo(() => {
-    if (stacked || bands.length === 0) return [];
-    const band = bands[0];
+    if (!single) return [];
+    const band = single;
     const marks = [
       ...recordedResets.map((mark) => ({ ...mark, points: band.recorded })),
       ...projectedResets.map((mark) => ({ ...mark, points: band.projected })),
@@ -205,7 +186,7 @@ export function ForecastChart({
       });
     return placed.filter((label) => Math.abs(label.x - nowX) > 18);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bands, recordedResets, projectedResets, stacked, span, plotW, plotH, yMax]);
+  }, [single, recordedResets, projectedResets, span, plotW, plotH, yMax]);
 
   /* ---------- 悬停 / 键盘 ---------- */
 
@@ -231,21 +212,17 @@ export function ForecastChart({
     }
   };
 
-  const readings =
-    cursor === null
-      ? []
-      : bands.map((band) => {
-          const source = cursor <= span.now ? band.recorded : band.projected;
-          return { band, value: valueAt(source, cursor) };
-        });
-  const readingTotal = readings.reduce((sum, r) => sum + (r.value ?? 0), 0);
+  const readAt = (band: ChartBand, time: number) =>
+    valueAt(time <= span.now ? band.recorded : band.projected, time);
+  const readings = cursor === null ? [] : bands.map((band) => ({ band, value: readAt(band, cursor) }));
+  const readingTotal = cursor !== null && total ? readAt(total, cursor) : null;
   const anyReading = readings.some((r) => r.value !== null);
   const cursorX = cursor === null ? 0 : x(cursor);
   const tooltipLeft = cursorX > width * 0.62;
 
-  const nowValue = bands.reduce((sum, band) => sum + (valueAt(band.projected, span.now) ?? 0), 0);
-  const ticks = [0, yMax / 2, yMax];
-  const single = !stacked ? bands[0] : null;
+  // The marker sits on the line it describes: the band itself, or the total.
+  const markerBand = single ?? total ?? null;
+  const nowValue = markerBand ? valueAt(markerBand.projected, span.now) : null;
 
   return (
     <div
@@ -280,7 +257,7 @@ export function ForecastChart({
           </defs>
         )}
 
-        {/* 网格：容量顶线、半程、零线；每天零点一条细竖线 */}
+        {/* 网格：按刻度的横线与零线；每天零点一条细竖线 */}
         {ticks.map((tick) => (
           <g key={tick}>
             <line
@@ -306,22 +283,24 @@ export function ForecastChart({
           />
         ))}
 
-        {geometry.map(({ band, recordedArea, projectedArea }) => (
-          <g key={`area-${band.id}`}>
-            <path
-              d={recordedArea}
-              fill={single ? `url(#${gradientId}-rec)` : band.color}
-              fillOpacity={single ? 1 : 0.78}
-            />
-            <path
-              d={projectedArea}
-              fill={single ? `url(#${gradientId}-proj)` : band.color}
-              fillOpacity={single ? 1 : 0.26}
-            />
-          </g>
-        ))}
-        {geometry.map(({ band, recordedLine, projectedLine }) => (
-          <g key={`line-${band.id}`}>
+        {geometry.map(({ band, isTotal, recordedArea, projectedArea }) =>
+          isTotal ? null : (
+            <g key={`area-${band.id}`}>
+              <path
+                d={recordedArea}
+                fill={single ? `url(#${gradientId}-rec)` : band.color}
+                fillOpacity={single ? 1 : 0.12}
+              />
+              <path
+                d={projectedArea}
+                fill={single ? `url(#${gradientId}-proj)` : band.color}
+                fillOpacity={single ? 1 : 0.05}
+              />
+            </g>
+          )
+        )}
+        {geometry.map(({ band, isTotal, recordedLine, projectedLine }) => (
+          <g key={`line-${band.id}`} className={isTotal ? styles.totalLine : undefined}>
             <path d={recordedLine} className={styles.recordedLine} stroke={band.color} />
             <path d={projectedLine} className={styles.projectedLine} stroke={band.color} />
           </g>
@@ -337,23 +316,37 @@ export function ForecastChart({
         <text className={styles.nowLabel} x={nowX} y={MARGIN.top - 17} textAnchor="middle">
           {t('quota_management.home.axis_now')}
         </text>
-        <circle
-          className={styles.nowDot}
-          cx={nowX}
-          cy={y(nowValue)}
-          r={5}
-          fill={single ? single.color : 'var(--text-primary)'}
-        />
+        {markerBand && nowValue !== null && (
+          <circle
+            className={styles.nowDot}
+            cx={nowX}
+            cy={y(nowValue)}
+            r={5}
+            fill={markerBand.color}
+          />
+        )}
 
         {cursor !== null && (
           <g className={styles.cursor}>
             <line x1={cursorX} x2={cursorX} y1={MARGIN.top} y2={MARGIN.top + plotH} />
-            {single && readings[0]?.value !== null && readings[0]?.value !== undefined && (
+            {readings.map(({ band, value }) =>
+              value === null ? null : (
+                <circle
+                  key={band.id}
+                  cx={cursorX}
+                  cy={y(value)}
+                  r={single ? 4.5 : 3.5}
+                  fill={band.color}
+                  className={styles.nowDot}
+                />
+              )
+            )}
+            {total && readingTotal !== null && (
               <circle
                 cx={cursorX}
-                cy={y(readings[0].value)}
+                cy={y(readingTotal)}
                 r={4.5}
-                fill={single.color}
+                fill={total.color}
                 className={styles.nowDot}
               />
             )}
@@ -384,14 +377,14 @@ export function ForecastChart({
               {readings.map(({ band, value }) => (
                 <div key={band.id} className={styles.tooltipRow}>
                   <i style={{ background: band.color }} aria-hidden="true" />
-                  {stacked && <span>{band.label}</span>}
+                  {!single && <span>{band.label}</span>}
                   <b>{value === null ? '—' : pct(value)}</b>
                 </div>
               ))}
-              {stacked && (
+              {total && (
                 <div className={`${styles.tooltipRow} ${styles.tooltipTotal}`}>
                   <span>{t(`${NS}.total`)}</span>
-                  <b>{pct(readingTotal)}</b>
+                  <b>{readingTotal === null ? '—' : pct(readingTotal)}</b>
                 </div>
               )}
             </>
@@ -403,7 +396,6 @@ export function ForecastChart({
         cells={dayCells}
         color={single?.color ?? 'var(--text-secondary)'}
         plotLeft={MARGIN.left}
-        dayPx={(plotW * DAY) / (span.to - span.from)}
       />
     </div>
   );
@@ -415,38 +407,32 @@ function DayStrip({
   cells,
   color,
   plotLeft,
-  dayPx,
 }: {
   cells: { start: number; end: number; x0: number; x1: number; usage: DayUsage | undefined }[];
   color: string;
   plotLeft: number;
-  /** Width of one whole day on the axis. */
-  dayPx: number;
 }) {
   const { t, i18n } = useTranslation();
   const dayFormat = useMemo(
     () => new Intl.DateTimeFormat(i18n.language, { weekday: 'short', day: 'numeric' }),
     [i18n.language]
   );
+  const dateFormat = useMemo(
+    () => new Intl.DateTimeFormat(i18n.language, { day: 'numeric' }),
+    [i18n.language]
+  );
 
-  // Too narrow to align with the axis: show yesterday through the day after
-  // tomorrow as equal columns instead.
-  const compact = dayPx < MIN_DAY_PX;
-  const todayIndex = cells.findIndex((cell) => cell.usage?.kind === 'today');
-  const shown = compact
-    ? cells.slice(Math.max(0, todayIndex - 1), todayIndex + 3)
-    : cells.filter((cell) => cell.x1 - cell.x0 >= 48);
-
+  // Every column sits exactly under its day on the time axis. A narrow column
+  // sheds its detail, then its figure, then its name, but never its position.
   return (
-    <ol
-      className={`${styles.days} ${compact ? styles.daysCompact : ''}`}
-      style={{ marginLeft: plotLeft }}
-    >
-      {shown.map((cell) => {
+    <ol className={styles.days} style={{ marginLeft: plotLeft }}>
+      {cells.map((cell) => {
         const usage = cell.usage;
         const widthPx = cell.x1 - cell.x0;
-        if (!usage) return null;
-        const roomy = compact || widthPx >= 68;
+        if (!usage || widthPx <= 0) return null;
+        const full = widthPx >= DAY_FULL_PX;
+        const showFigure = widthPx >= DAY_FIGURE_PX;
+        const showName = widthPx >= DAY_NAME_PX;
         const projected = usage.kind === 'future';
         const used = usage.used;
         const dayLabel = dayFormat.format(cell.start);
@@ -472,22 +458,22 @@ function DayStrip({
         ]
           .filter(Boolean)
           .join(', ');
+        const name = full
+          ? usage.kind === 'today'
+            ? t(`${NS}.day_today`)
+            : dayLabel
+          : dateFormat.format(cell.start);
         return (
           <li
             key={cell.start}
             className={`${styles.day} ${styles[`day_${usage.kind}`]}`}
-            style={
-              compact
-                ? { ['--series' as string]: color }
-                : { left: cell.x0 - plotLeft, width: widthPx, ['--series' as string]: color }
-            }
+            style={{ left: cell.x0 - plotLeft, width: widthPx, ['--series' as string]: color }}
             aria-label={aria}
+            title={aria}
           >
-            <span className={styles.dayName}>
-              {usage.kind === 'today' && roomy ? t(`${NS}.day_today`) : dayLabel}
-            </span>
-            <span className={styles.dayUsed}>{usedText}</span>
-            {roomy && detail && <span className={styles.dayDetail}>{detail}</span>}
+            {showName && <span className={styles.dayName}>{name}</span>}
+            {showFigure && <span className={styles.dayUsed}>{usedText}</span>}
+            {full && detail && <span className={styles.dayDetail}>{detail}</span>}
           </li>
         );
       })}
