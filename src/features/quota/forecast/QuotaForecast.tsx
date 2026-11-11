@@ -1,6 +1,7 @@
 /**
- * Usage forecast section at the top of the quota page: one stacked chart for
- * every provider together, then one card per provider.
+ * Usage forecast section at the top of the quota page: one chart for every
+ * provider together (each line from zero, plus their total), then one card per
+ * provider.
  */
 
 import { useMemo } from 'react';
@@ -77,10 +78,16 @@ function PaceNote({ pool }: { pool: PoolForecast }) {
   );
 }
 
-function Legend() {
+function Legend({ withTotal = false }: { withTotal?: boolean }) {
   const { t } = useQuotaFormat();
   return (
     <span className={styles.lineLegend}>
+      {withTotal && (
+        <span>
+          <i className={styles.keyTotal} aria-hidden="true" />
+          {t(`${NS}.total`)}
+        </span>
+      )}
       <span>
         <i className={styles.keySolid} aria-hidden="true" />
         {t(`${NS}.legend_recorded`)}
@@ -170,6 +177,16 @@ export function QuotaForecast({ forecast, theme }: { forecast: Forecast; theme: 
       }),
     [providers]
   );
+  const totalBand = useMemo<ChartBand>(
+    () => ({
+      id: 'total',
+      label: t(`${NS}.total`),
+      color: 'var(--forecast-total)',
+      recorded: total.recorded,
+      projected: total.projected,
+    }),
+    [t, total.recorded, total.projected]
+  );
 
   if (providers.length === 0) return null;
 
@@ -219,6 +236,7 @@ export function QuotaForecast({ forecast, theme }: { forecast: Forecast; theme: 
             span={span}
             capacity={total.capacity}
             bands={bands}
+            total={totalBand}
             days={total.days}
             height={250}
             summary={t(`${NS}.chart_summary`, {
@@ -228,16 +246,7 @@ export function QuotaForecast({ forecast, theme }: { forecast: Forecast; theme: 
             })}
           />
           <footer className={styles.cardFoot}>
-            <span className={styles.lineLegend}>
-              <span>
-                <i className={styles.keyFill} aria-hidden="true" />
-                {t(`${NS}.legend_recorded`)}
-              </span>
-              <span>
-                <i className={styles.keyFillFaint} aria-hidden="true" />
-                {t(`${NS}.legend_projected`)}
-              </span>
-            </span>
+            <Legend withTotal />
           </footer>
         </div>
       </article>

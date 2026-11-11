@@ -332,6 +332,23 @@ const usedAt = (points: Simulation['points'], t: number) =>
     t
   );
 
+/**
+ * Y-axis ticks from 0 to at least `max`: the smallest 1/2/2.5/5 step that needs
+ * no more than `maxIntervals` gridlines, with the top rounded up to a step.
+ */
+export function axisTicks(max: number, maxIntervals = 6): number[] {
+  const target = Math.max(max, 1);
+  for (let magnitude = 1; ; magnitude *= 10) {
+    for (const factor of [1, 2, 2.5, 5]) {
+      const step = factor * magnitude;
+      const intervals = Math.ceil(target / step - 1e-9);
+      if (intervals <= maxIntervals) {
+        return Array.from({ length: intervals + 1 }, (_, i) => i * step);
+      }
+    }
+  }
+}
+
 /* ---------- 汇总 ---------- */
 
 export function startOfLocalDay(ms: number): number {
@@ -381,15 +398,13 @@ function poolForecast(
   const { from, now, to } = span;
   const tracked = trackedAccounts(accounts);
   const liveKeys = new Set(tracked.map((entry) => entry.key));
-  const providers = new Set(accounts.map((account) => account.provider));
 
+  // Only the accounts in today's pool. A removed, renamed or disabled account's
+  // series would stack on top of `capacity`, so the pool could read above 100%
+  // per account (and a renamed file would count its own history twice).
   const pool: PoolSeries[] = Object.entries(history)
-    // Removed accounts still count until their last sample, so past days keep their use.
-    .filter(([, series]) => providers.has(series.provider))
-    .map(([key, series]) => ({
-      series,
-      activeUntil: liveKeys.has(key) ? now : series.points[series.points.length - 1].t,
-    }));
+    .filter(([key]) => liveKeys.has(key))
+    .map(([, series]) => ({ series, activeUntil: now }));
 
   const simAccounts: SimAccount[] = tracked.map((entry) => ({
     v: entry.limit.remainingPct,
@@ -485,7 +500,36 @@ function poolForecast(
   };
 }
 
-/** Sum provider pools on a shared clock; the total chart stacks the providers instead. */
+/**
+ * Pointwise sum of piecewise-linear series. A series contributes nothing
+ * outside its own range; a vertical step in any series stays a step in the sum.
+ */
+export function sumSeries(seriesList: ChartPoint[][]): ChartPoint[] {
+  const times = new Set<number>();
+  for (const points of seriesList) {
+    points.forEach((point, index) => {
+      times.add(point.t);
+      if (index > 0 && points[index - 1].t === point.t) times.add(point.t - 1);
+    });
+  }
+  const out: ChartPoint[] = [];
+  Array.from(times)
+    .sort((a, b) => a - b)
+    .forEach((t) => {
+      let sum = 0;
+      let any = false;
+      for (const points of seriesList) {
+        const value = valueAt(points, t);
+        if (value === null) continue;
+        sum += value;
+        any = true;
+      }
+      if (any) out.push({ t, v: sum });
+    });
+  return out;
+}
+
+/** Sum provider pools on a shared clock. */
 function totalForecast(providers: PoolForecast[], span: ForecastSpan): PoolForecast {
   const sumOrNull = (values: (number | null)[]) =>
     values.some((value) => value !== null)
@@ -510,8 +554,8 @@ function totalForecast(providers: PoolForecast[], span: ForecastSpan): PoolForec
     remaining: providers.reduce((sum, pool) => sum + pool.remaining, 0),
     pacePerDay: providers.reduce((sum, pool) => sum + pool.pacePerDay, 0),
     paceBasis: bases.has('window') ? 'window' : bases.has('history') ? 'history' : 'none',
-    recorded: [],
-    projected: [],
+    recorded: sumSeries(providers.map((pool) => pool.recorded)),
+    projected: sumSeries(providers.map((pool) => pool.projected)),
     recordedResets: mergeResets(providers.flatMap((pool) => pool.recordedResets)),
     projectedResets: resets,
     days: days ?? dayBounds(span.from, span.to).map(({ start, end }) => ({

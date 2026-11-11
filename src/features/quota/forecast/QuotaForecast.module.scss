@@ -1,5 +1,5 @@
 /* ============================================================
- * 用量预测：全提供商堆叠图 + 每个提供商一张卡。
+ * 用量预测：全提供商叠加图（各自从零量起，另加合计线）+ 每个提供商一张卡。
  * 提供商色按固定顺序分配，两套主题各自校验过色盲区分度。
  * ============================================================ */
 
@@ -12,6 +12,7 @@
   --forecast-devin: #008300;
   --forecast-meta: #6250d6;
   --forecast-plugin: #e34948;
+  --forecast-total: var(--text-primary);
 
   display: flex;
   flex-direction: column;
@@ -241,16 +242,11 @@
   border-top-style: dashed;
 }
 
-.keyFill,
-.keyFillFaint {
-  width: 14px;
-  height: 10px;
-  border-radius: 3px;
-  background: var(--text-secondary);
-}
-
-.keyFillFaint {
-  opacity: 0.35;
+.keyTotal {
+  width: 18px;
+  height: 0;
+  border-top: 3px solid var(--forecast-total);
+  border-radius: 2px;
 }
 
 /* ---------- 图 ---------- */
@@ -323,6 +319,10 @@
 .projectedLine {
   stroke-dasharray: 6 5;
   stroke-linecap: butt;
+}
+
+.totalLine path {
+  stroke-width: 2.5;
 }
 
 .nowLine {
@@ -407,20 +407,6 @@
   margin: 2px 14px 0 0;
   padding: 0;
   list-style: none;
-}
-
-.daysCompact {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 6px;
-  height: auto;
-  margin-left: 0 !important;
-  margin-right: 0;
-
-  .day {
-    position: static;
-    padding-bottom: 6px;
-  }
 }
 
 .day {
