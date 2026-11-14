@@ -193,7 +193,7 @@ export function QuotaCard(props: QuotaCardProps) {
               type="button"
               className={styles.actionPill}
               disabled={claudeReset.blocked}
-              onClick={claudeReset.confirm}
+              onClick={() => claudeReset.confirm()}
               title={t(`claude_reset.${claudeReset.buttonLabel}`)}
             >
               <IconRefreshCw size={13} className={claudeReset.busy ? styles.spinning : undefined} />

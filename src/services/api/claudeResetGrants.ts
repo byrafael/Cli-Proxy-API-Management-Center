@@ -36,9 +36,15 @@ export type AnthropicResetUpstreamResult = (typeof ANTHROPIC_RESET_RESULTS)[numb
 export type AnthropicResetSettledCode =
   AnthropicResetUpstreamResult | 'rate_limited' | 'auth_error';
 
+/** What a grant resets: the whole account, or one model's weekly limit. */
+export type AnthropicResetGrantKind = 'account' | 'model';
+
 export interface AnthropicResetGrant {
   id: string;
   label: string;
+  kind: AnthropicResetGrantKind;
+  /** Model display name for a model-scoped grant, when upstream names it. */
+  model: string | null;
   resetsTotal: number;
   resetsLeft: number;
   startsAt: string | null;
@@ -143,6 +149,23 @@ function parsePercentUsed(value: unknown): Partial<Record<AnthropicResetWindow, 
   return out;
 }
 
+/**
+ * Grants mirror the usage `limits` shape: only a `scope.model` block marks a
+ * model-scoped grant; every other shape resets the account. Unknown shapes
+ * never reject the block, because the kind is display-only.
+ */
+function parseGrantScope(value: Record<string, unknown>): {
+  kind: AnthropicResetGrantKind;
+  model: string | null;
+} {
+  const scope = value.scope;
+  if (isRecord(scope) && isRecord(scope.model)) {
+    const name = safeLabel(scope.model.display_name ?? scope.model.name);
+    return { kind: 'model', model: name || null };
+  }
+  return { kind: 'account', model: null };
+}
+
 function parseGrant(value: unknown): AnthropicResetGrant | null {
   if (!isRecord(value)) return null;
   const { id, resets_total: total, resets_left: left } = value;
@@ -168,6 +191,7 @@ function parseGrant(value: unknown): AnthropicResetGrant | null {
   return {
     id,
     label: safeLabel(value.label),
+    ...parseGrantScope(value),
     resetsTotal: total,
     resetsLeft: left,
     startsAt,

@@ -1,4 +1,6 @@
 import { selectResetGrant } from '../src/features/quota/providers/claude/selectResetGrant';
+import { reconcileToSummaryCount, wholeCount } from '../src/features/quota/home/resetItems';
+import { placeTip } from '../src/features/quota/home/tipPlacement';
 
 import { afterEach, describe, expect, test } from 'bun:test';
 import {
@@ -425,12 +427,39 @@ test('card selection prefers usable recommendation and has deterministic fallbac
   }
 });
 
+test('grant kind follows scope.model and never rejects the block', () => {
+  const parsed = parseAnthropicResetGrantStatus({
+    ...block,
+    grants: [
+      { ...grant, id: 'acct' },
+      { ...grant, id: 'fable', scope: { model: { display_name: 'Fable 5' } } },
+      { ...grant, id: 'odd', scope: 'weird' },
+    ],
+  })!;
+  expect(parsed.grants.map((g) => [g.id, g.kind, g.model])).toEqual([
+    ['acct', 'account', null],
+    ['fable', 'model', 'Fable 5'],
+    ['odd', 'account', null],
+  ]);
+});
+
+test('selection narrows to a reset kind', () => {
+  const base = status();
+  const account = { ...base.grants[0], id: 'a', kind: 'account' as const };
+  const model = { ...account, id: 'm', kind: 'model' as const, model: 'Fable 5' };
+  const both = { ...base, grants: [account, model], nextGrantId: 'a' };
+  expect(selectResetGrant(both, 0)?.id).toBe('a');
+  expect(selectResetGrant(both, 0, 'model')?.id).toBe('m');
+  expect(selectResetGrant(both, 0, 'account')?.id).toBe('a');
+  expect(selectResetGrant({ ...both, grants: [account] }, 0, 'model')).toBeUndefined();
+});
+
 test('Claude card uses Codex count and action styles and shared confirmation, not a grant dialog', async () => {
   const card = await Bun.file('src/features/quota/components/QuotaCard.tsx').text();
   const hook = await Bun.file('src/features/quota/providers/claude/ClaudeResetGrants.tsx').text();
   expect(card).toContain('quotaClasses.codexPlanValue}>{claudeReset.count');
   expect(card).toContain('disabled={claudeReset.blocked}');
-  expect(card).toContain('onClick={claudeReset.confirm}');
+  expect(card).toContain('onClick={() => claudeReset.confirm()}');
   expect(hook).toContain('showConfirmation({');
   expect(hook).toContain("pending ? 'claude_reset.retry_confirm'");
   expect(hook).not.toContain('<Modal');
@@ -451,4 +480,93 @@ test('account reads map upstream 429 to a sanitized typed rate-limit failure', a
     });
   }
   expect(calls).toBe(2); // Neither read retries.
+});
+
+test('reset-type hover strings exist in six locales with every plural form they need', async () => {
+  const plurals: Record<string, string[]> = {
+    en: ['one', 'other'],
+    ko: ['other'],
+    vi: ['other'],
+    'zh-CN': ['other'],
+    'zh-TW': ['other'],
+    ru: ['one', 'few', 'many', 'other'],
+  };
+  const pluralKeys = [
+    'resets_tip_title',
+    'resets_tip_all_same',
+    'resets_tip_line',
+    'resets_tip_no_expiry',
+  ];
+  const plainKeys = [
+    'resets_kind_account',
+    'resets_kind_model',
+    'resets_use_kind',
+    'resets_tip_earliest',
+  ];
+  for (const [locale, forms] of Object.entries(plurals)) {
+    const home = (await Bun.file(`src/i18n/locales/${locale}.json`).json()).quota_management.home;
+    const filled = (value: unknown) => typeof value === 'string' && value.trim().length > 0;
+    for (const key of [...plainKeys, 'resets_file_disabled']) expect(filled(home[key])).toBe(true);
+    for (const key of pluralKeys)
+      for (const form of forms) expect(filled(home[`${key}_${form}`])).toBe(true);
+  }
+});
+
+test('only a scope.model block marks a model grant', () => {
+  const parsed = parseAnthropicResetGrantStatus({
+    ...block,
+    grants: [
+      { ...grant, id: 'k', kind: 'model' },
+      { ...grant, id: 's', scope: 'model' },
+      { ...grant, id: 'n', scope: { model: null } },
+    ],
+  })!;
+  expect(parsed.grants.map((g) => g.kind)).toEqual(['account', 'account', 'account']);
+});
+
+test('Codex summary count wins over partial or extra credit details', () => {
+  const dated = { kind: 'account' as const, label: 'Credit 1', model: null, left: 1, expiresAt: 5 };
+  expect(reconcileToSummaryCount([dated], 3)).toEqual([
+    dated,
+    { kind: 'account', label: '', model: null, left: 2, expiresAt: null },
+  ]);
+  expect(reconcileToSummaryCount([dated], 1)).toEqual([dated]);
+  // A lower summary wins: keep the soonest expiries, drop the rest, zero shows nothing.
+  const later = { ...dated, label: 'Credit 2', expiresAt: 9 };
+  expect(reconcileToSummaryCount([later, dated], 1)).toEqual([dated]);
+  expect(reconcileToSummaryCount([dated, later], 0)).toEqual([]);
+  expect(reconcileToSummaryCount([{ ...dated, left: 3 }], 2)).toEqual([{ ...dated, left: 2 }]);
+  expect(reconcileToSummaryCount([], 2)).toEqual([
+    { kind: 'account', label: '', model: null, left: 2, expiresAt: null },
+  ]);
+});
+
+test('reset counts are whole and never negative', () => {
+  const dated = { kind: 'account' as const, label: 'Credit 1', model: null, left: 1, expiresAt: 5 };
+  expect(wholeCount(2.7)).toBe(2);
+  expect(wholeCount(-1)).toBe(0);
+  expect(wholeCount(Number.NaN)).toBe(0);
+  expect(reconcileToSummaryCount([dated], 2.5)).toEqual([
+    dated,
+    { kind: 'account', label: '', model: null, left: 1, expiresAt: null },
+  ]);
+});
+
+test('hover card stays inside the viewport', () => {
+  const viewport = { width: 1000, height: 800 };
+  const card = { width: 300, height: 200 };
+  // Room below: right-aligned under the row.
+  expect(placeTip({ top: 100, bottom: 130, right: 900 }, card, viewport)).toEqual({
+    top: 136,
+    left: 600,
+  });
+  // Near the bottom: flips above the row.
+  expect(placeTip({ top: 700, bottom: 730, right: 900 }, card, viewport)).toEqual({
+    top: 494,
+    left: 600,
+  });
+  // Near the left edge and too tall for either side: clamped to the margins.
+  expect(
+    placeTip({ top: 300, bottom: 330, right: 100 }, { width: 300, height: 900 }, viewport)
+  ).toEqual({ top: 8, left: 8 });
 });

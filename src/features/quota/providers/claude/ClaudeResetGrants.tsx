@@ -6,6 +6,8 @@ import { useNotificationStore } from '@/stores';
 import { apiClient } from '@/services/api/client';
 import {
   AnthropicResetGrantError,
+  anthropicResetGrantBlocker,
+  type AnthropicResetGrantKind,
   type AnthropicResetGrantStatus,
 } from '@/services/api/claudeResetGrants';
 import type { AuthFileItem } from '@/types';
@@ -81,7 +83,37 @@ export function useClaudeResetGrants(
   const expired = Boolean(pending && now - pending.createdAt >= RETRY_WINDOW_MS);
   const selected = pending?.grantId ?? (status ? selectResetGrant(status, now)?.id : undefined);
   const blocked = disabled || !sessionActive || !authIndex || busy || expired || !selected;
-  const confirm = () => {
+  /** A pending claim keeps its grant; otherwise `kind` narrows the pick to that reset type. */
+  const pickFor = (kind?: AnthropicResetGrantKind) =>
+    pending?.grantId ?? (status ? selectResetGrant(status, now, kind)?.id : undefined);
+  const canUse = (kind?: AnthropicResetGrantKind) => !blocked && Boolean(pickFor(kind));
+  /**
+   * Translation key for why a grant of `kind` cannot be spent now, or null when it can
+   * (or when the cause is transient page state with nothing useful to say).
+   */
+  const blockReason = (kind?: AnthropicResetGrantKind): string | null => {
+    if (busy || disabled || pending) return null;
+    if (!sessionActive || !authIndex || !status) return 'claude_reset.blocked';
+    if (status.cooldownUntil && Date.parse(status.cooldownUntil) > now)
+      return 'claude_reset.cooldown';
+    const own = status.grants.filter(
+      (grant) => (!kind || grant.kind === kind) && grant.resetsLeft > 0
+    );
+    const reasons = own.map((grant) => {
+      const blocker = anthropicResetGrantBlocker(status, grant.id);
+      if (blocker) return blocker;
+      const dated =
+        (!grant.startsAt || Date.parse(grant.startsAt) <= now) &&
+        (!grant.endsAt || Date.parse(grant.endsAt) > now);
+      return dated ? null : 'not_usable';
+    });
+    if (reasons.includes(null)) return null;
+    if (reasons.includes('not_limited')) return 'quota_management.home.resets_when_limited';
+    if (reasons.includes('ineligible')) return 'claude_reset.ineligible';
+    return 'claude_reset.unavailable';
+  };
+  const confirm = (kind?: AnthropicResetGrantKind) => {
+    const selected = pickFor(kind);
     if (blocked || lock.current || !selected || !authIndex) return;
     const version = generation.current;
     const current = () =>
@@ -137,6 +169,8 @@ export function useClaudeResetGrants(
     grants: status?.grants ?? [],
     busy,
     blocked,
+    canUse,
+    blockReason,
     confirm,
     message: pending ? (expired ? 'expired' : 'unknown') : message,
     buttonLabel: pending ? 'retry' : 'use',
