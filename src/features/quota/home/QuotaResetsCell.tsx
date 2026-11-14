@@ -6,15 +6,7 @@
  * 复用旧卡片的 useClaudeResetGrants（含二次确认、重试窗口等保护），不重新实现。
  */
 
-import {
-  useEffect,
-  useId,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ReactNode,
-} from 'react';
+import { useCallback, useEffect, useId, useMemo, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { IconRefreshCw, IconTimer, IconZap } from '@/components/ui/icons';
 import type { AnthropicResetGrantKind } from '@/services/api/claudeResetGrants';
@@ -106,19 +98,22 @@ export function QuotaResetsCell({
     kind: AnthropicResetGrantKind;
     rect: DOMRect;
   } | null>(null);
-  const tipRef = useRef<HTMLDivElement>(null);
-  // Place the card from its measured size before paint, so it never shows off screen.
-  useLayoutEffect(() => {
-    const card = tipRef.current;
-    if (!openTip || !card) return;
-    const { top, left } = placeTip(openTip.rect, card.getBoundingClientRect(), {
-      width: window.innerWidth,
-      height: window.innerHeight,
-    });
-    card.style.top = `${top}px`;
-    card.style.left = `${left}px`;
-    card.style.visibility = 'visible';
-  }, [openTip]);
+  // A callback ref runs whenever the card mounts, including a remount after a live
+  // refresh briefly removed it, and again when the hovered row changes. It places the
+  // card from its measured size before paint, so it never shows off screen.
+  const tipRef = useCallback(
+    (card: HTMLDivElement | null) => {
+      if (!openTip || !card) return;
+      const { top, left } = placeTip(openTip.rect, card.getBoundingClientRect(), {
+        width: window.innerWidth,
+        height: window.innerHeight,
+      });
+      card.style.top = `${top}px`;
+      card.style.left = `${left}px`;
+      card.style.visibility = 'visible';
+    },
+    [openTip]
+  );
   // The card is fixed to the viewport, so any scroll would detach it from its row.
   useEffect(() => {
     if (!openTip) return;
