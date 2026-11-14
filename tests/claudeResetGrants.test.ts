@@ -9,6 +9,7 @@ import {
   parseAnthropicResetGrantStatus,
   readClaudeOrganization,
   readClaudeResetGrants,
+  scopedModelNames,
   AnthropicResetGrantUnknownOutcome,
   AnthropicResetGrantError,
   ANTHROPIC_RESET_RESULTS,
@@ -512,7 +513,7 @@ test('reset-type hover strings exist in six locales with every plural form they 
   }
 });
 
-test('only a scope.model block marks a model grant', () => {
+test('a kind field or non-record scope never marks a model grant', () => {
   const parsed = parseAnthropicResetGrantStatus({
     ...block,
     grants: [
@@ -522,6 +523,85 @@ test('only a scope.model block marks a model grant', () => {
     ],
   })!;
   expect(parsed.grants.map((g) => g.kind)).toEqual(['account', 'account', 'account']);
+});
+
+// Live upstream shape (2026-11): grants carry no scope; only the label names the model.
+const liveLimits = [
+  { kind: 'session', group: 'session', percent: 2, scope: null },
+  { kind: 'weekly_all', group: 'weekly', percent: 4, scope: null },
+  {
+    kind: 'weekly_scoped',
+    group: 'weekly',
+    percent: 0,
+    scope: { model: { id: null, display_name: 'Fable' }, surface: null },
+  },
+];
+const liveGrants = [
+  {
+    ...grant,
+    id: 'full',
+    label: 'One full limit reset (November 2026)',
+    clears: ['five_hour', 'seven_day', 'seven_day_overage_included'],
+    type: 'full',
+    gives_back_weekly: false,
+  },
+  {
+    ...grant,
+    id: 'fable-launch',
+    label: 'New model launch: one Fable reset for Max, Team Premium and Enterprise Premium',
+    clears: ['five_hour', 'seven_day_overage_included'],
+    type: 'full',
+    gives_back_weekly: true,
+  },
+  {
+    ...grant,
+    id: 'fable-tenure',
+    label: "New model launch: one more Fable reset at 6 months' tenure",
+    clears: ['five_hour', 'seven_day_overage_included'],
+    type: 'full',
+    gives_back_weekly: true,
+  },
+];
+
+test('a label naming a scoped model marks a model grant', () => {
+  expect(scopedModelNames(liveLimits)).toEqual(['Fable']);
+  const parsed = parseAnthropicResetGrantStatus(
+    { ...block, grants: liveGrants },
+    scopedModelNames(liveLimits)
+  )!;
+  expect(parsed.grants.map((g) => [g.kind, g.model])).toEqual([
+    ['account', null],
+    ['model', 'Fable'],
+    ['model', 'Fable'],
+  ]);
+  // Without scoped models from the same response, nothing is guessed.
+  expect(
+    parseAnthropicResetGrantStatus({ ...block, grants: liveGrants })!.grants.map((g) => g.kind)
+  ).toEqual(['account', 'account', 'account']);
+});
+
+test('model names match whole words, and an ambiguous label stays an account grant', () => {
+  const kinds = (label: string, models: string[]) =>
+    parseAnthropicResetGrantStatus({ ...block, grants: [{ ...grant, label }] }, models)!.grants[0]
+      .kind;
+  expect(kinds('one fable reset', ['Fable'])).toBe('model');
+  expect(kinds('Fableish reset', ['Fable'])).toBe('account');
+  expect(kinds('Opus 5.5 reset', ['Opus 5.5'])).toBe('model');
+  expect(kinds('Opus 545 reset', ['Opus 5.5'])).toBe('account');
+  expect(kinds('Fable and Opus reset', ['Fable', 'Opus'])).toBe('account');
+  expect(scopedModelNames(null)).toEqual([]);
+  expect(scopedModelNames([{ scope: { model: { display_name: '' } } }, 'x'])).toEqual([]);
+});
+
+test("reading grants passes the response's scoped models to the parser", async () => {
+  apiCallApi.request = async () => ({
+    statusCode: 200,
+    body: { cedar_ember: { ...block, grants: liveGrants }, limits: liveLimits },
+    bodyText: '',
+    header: {},
+  });
+  const read = await readClaudeResetGrants('index');
+  expect(read.grants.filter((g) => g.kind === 'model').length).toBe(2);
 });
 
 test('Codex summary count wins over partial or extra credit details', () => {

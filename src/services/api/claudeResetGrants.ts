@@ -150,11 +150,37 @@ function parsePercentUsed(value: unknown): Partial<Record<AnthropicResetWindow, 
 }
 
 /**
- * Grants mirror the usage `limits` shape: only a `scope.model` block marks a
- * model-scoped grant; every other shape resets the account. Unknown shapes
- * never reject the block, because the kind is display-only.
+ * Model names the usage response scopes a weekly limit to, from `limits[].scope.model`.
+ * Grants carry no scope of their own, so these names are how a grant's label is matched.
  */
-function parseGrantScope(value: Record<string, unknown>): {
+export function scopedModelNames(limits: unknown): string[] {
+  if (!Array.isArray(limits)) return [];
+  const names = new Set<string>();
+  for (const limit of limits) {
+    if (!isRecord(limit) || !isRecord(limit.scope) || !isRecord(limit.scope.model)) continue;
+    const name = safeLabel(limit.scope.model.display_name ?? limit.scope.model.name);
+    if (name) names.add(name);
+  }
+  return [...names];
+}
+
+function namesModel(label: string, model: string): boolean {
+  const escaped = model.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`(^|[^\\p{L}\\p{N}])${escaped}($|[^\\p{L}\\p{N}])`, 'iu').test(label);
+}
+
+/**
+ * Upstream grants have no scope field; a model grant says so only in its label
+ * ("one Fable reset"). A grant is model-scoped when it carries a `scope.model`
+ * block, or its label names exactly one model the usage response scopes a limit
+ * to. Everything else resets the account. The kind is display-only, so unknown
+ * shapes never reject the block.
+ */
+function parseGrantScope(
+  value: Record<string, unknown>,
+  label: string,
+  scopedModels: readonly string[]
+): {
   kind: AnthropicResetGrantKind;
   model: string | null;
 } {
@@ -163,10 +189,12 @@ function parseGrantScope(value: Record<string, unknown>): {
     const name = safeLabel(scope.model.display_name ?? scope.model.name);
     return { kind: 'model', model: name || null };
   }
+  const named = scopedModels.filter((model) => namesModel(label, model));
+  if (named.length === 1) return { kind: 'model', model: named[0] };
   return { kind: 'account', model: null };
 }
 
-function parseGrant(value: unknown): AnthropicResetGrant | null {
+function parseGrant(value: unknown, scopedModels: readonly string[]): AnthropicResetGrant | null {
   if (!isRecord(value)) return null;
   const { id, resets_total: total, resets_left: left } = value;
   if (typeof id !== 'string' || !ANTHROPIC_RESET_GRANT_ID_RE.test(id)) return null;
@@ -188,10 +216,11 @@ function parseGrant(value: unknown): AnthropicResetGrant | null {
     useRequiresLimit === undefined
   )
     return null;
+  const label = safeLabel(value.label);
   return {
     id,
-    label: safeLabel(value.label),
-    ...parseGrantScope(value),
+    label,
+    ...parseGrantScope(value, label, scopedModels),
     resetsTotal: total,
     resetsLeft: left,
     startsAt,
@@ -208,14 +237,17 @@ function parseGrant(value: unknown): AnthropicResetGrant | null {
  * Parses the `cedar_ember` block. Returns null for a missing or malformed block;
  * one malformed grant, a duplicate id, or a bad timestamp rejects the whole block.
  */
-export function parseAnthropicResetGrantStatus(block: unknown): AnthropicResetGrantStatus | null {
+export function parseAnthropicResetGrantStatus(
+  block: unknown,
+  scopedModels: readonly string[] = []
+): AnthropicResetGrantStatus | null {
   if (!isRecord(block) || typeof block.eligible !== 'boolean') return null;
   const rawGrants = block.grants ?? [];
   if (!Array.isArray(rawGrants)) return null;
   const grants: AnthropicResetGrant[] = [];
   const seen = new Set<string>();
   for (const raw of rawGrants) {
-    const grant = parseGrant(raw);
+    const grant = parseGrant(raw, scopedModels);
     if (!grant || seen.has(grant.id)) return null;
     seen.add(grant.id);
     grants.push(grant);
@@ -280,7 +312,7 @@ async function readAccount(authIndex: string, path: string): Promise<Record<stri
 
 export async function readClaudeResetGrants(authIndex: string) {
   const body = await readAccount(authIndex, ANTHROPIC_RESET_GRANT_STATUS_PATH);
-  const status = parseAnthropicResetGrantStatus(body.cedar_ember);
+  const status = parseAnthropicResetGrantStatus(body.cedar_ember, scopedModelNames(body.limits));
   if (!status) throw new AnthropicResetGrantError('malformed');
   return status;
 }
