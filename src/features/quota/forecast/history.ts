@@ -1,7 +1,10 @@
 /**
- * Recorded quota history: one series per account window, sampled whenever the
- * quota page loads limits. The Management API keeps no history, so the browser
- * records what it sees and persists it in localStorage.
+ * Recorded quota history: one series per account window. The proxy samples every
+ * Claude and Codex login on a schedule and serves its history from
+ * `/quota/history`; the browser also records what it sees and keeps that in
+ * localStorage. The page shows the merge of both, so a fresh device or a cleared
+ * browser still gets the proxy's 30 days, and providers the proxy does not sample
+ * still chart while the page is open.
  *
  * Pure apart from `loadHistory` / `saveHistory`; the forecast model and tests
  * consume the parsed shape directly.
@@ -45,7 +48,11 @@ export const primaryLimit = (
   account: QuotaAccount
 ): { limit: QuotaLimit; window: PrimaryWindow; periodHours: number } | null => {
   if (account.weekly) {
-    return { limit: account.weekly, window: 'weekly', periodHours: account.weekly.periodHours ?? 168 };
+    return {
+      limit: account.weekly,
+      window: 'weekly',
+      periodHours: account.weekly.periodHours ?? 168,
+    };
   }
   if (account.fiveHour) {
     return {
@@ -151,12 +158,15 @@ const isNumber = (value: unknown): value is number =>
 /** Parse stored history; anything malformed is dropped rather than trusted. */
 export function parseHistory(raw: string | null): QuotaHistory {
   if (!raw) return {};
-  let parsed: unknown;
   try {
-    parsed = JSON.parse(raw);
+    return parseStoredHistory(JSON.parse(raw));
   } catch {
     return {};
   }
+}
+
+/** Parse an already-decoded stored history, such as the proxy's `/quota/history` body. */
+export function parseStoredHistory(parsed: unknown): QuotaHistory {
   const stored = parsed as Partial<StoredHistory> | null;
   if (!stored || stored.version !== 1 || typeof stored.series !== 'object' || !stored.series) {
     return {};
@@ -176,6 +186,31 @@ export function parseHistory(raw: string | null): QuotaHistory {
     history[key] = { provider: entry.p as QuotaProviderType, periodHours: entry.h, points };
   }
   return history;
+}
+
+/**
+ * Union of two histories. Samples from the same minute are one sample (the
+ * stored format has minute precision), and `primary` wins a tie, so the proxy's
+ * reading of a minute is kept over the browser's.
+ */
+export function mergeHistory(primary: QuotaHistory, secondary: QuotaHistory): QuotaHistory {
+  const merged: QuotaHistory = { ...secondary };
+  for (const [key, series] of Object.entries(primary)) {
+    const other = secondary[key];
+    if (!other) {
+      merged[key] = series;
+      continue;
+    }
+    const byMinute = new Map<number, HistoryPoint>();
+    for (const point of other.points) byMinute.set(Math.round(point.t / MINUTE), point);
+    for (const point of series.points) byMinute.set(Math.round(point.t / MINUTE), point);
+    merged[key] = {
+      provider: series.provider,
+      periodHours: series.periodHours,
+      points: [...byMinute.values()].sort((a, b) => a.t - b.t),
+    };
+  }
+  return merged;
 }
 
 export function loadHistory(): QuotaHistory {

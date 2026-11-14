@@ -1690,6 +1690,7 @@
     "forecast": {
       "title": "Dự báo mức dùng",
       "hint_since": "Hạn mức còn lại gộp theo nhà cung cấp, được ghi khi trang này mở từ {{date}}. Đường nét đứt kéo dài tốc độ hiện tại qua mỗi lần đặt lại.",
+      "hint_since_server": "Dung lượng còn lại gộp theo nhà cung cấp, được proxy ghi lại mỗi 15 phút kể từ {{date}}. Đường nét đứt dự báo theo tốc độ hiện tại đến mỗi lần đặt lại.",
       "hint_new": "Hạn mức còn lại gộp theo nhà cung cấp. Bắt đầu ghi từ bây giờ, khi trang này mở. Đường nét đứt kéo dài tốc độ hiện tại qua mỗi lần đặt lại.",
       "all_providers": "Tất cả nhà cung cấp",
       "of_capacity": "trên {{value}}",

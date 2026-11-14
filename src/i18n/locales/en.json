@@ -1734,6 +1734,7 @@
     "forecast": {
       "title": "Usage forecast",
       "hint_since": "Remaining capacity pooled per provider, recorded while this page is open since {{date}}. Dashed lines project the current pace through each reset.",
+      "hint_since_server": "Remaining capacity pooled per provider, recorded by the proxy every 15 minutes since {{date}}. Dashed lines project the current pace through each reset.",
       "hint_new": "Remaining capacity pooled per provider. Recording starts now and continues while this page is open. Dashed lines project the current pace through each reset.",
       "all_providers": "All providers",
       "of_capacity": "of {{value}}",

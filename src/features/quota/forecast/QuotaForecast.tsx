@@ -136,7 +136,9 @@ function ProviderCard({
       </header>
       <p className={styles.figure}>
         <span className={styles.figureValue}>{pct(pool.remaining)}</span>
-        <span className={styles.figureOf}>{t(`${NS}.of_capacity`, { value: pct(pool.capacity) })}</span>
+        <span className={styles.figureOf}>
+          {t(`${NS}.of_capacity`, { value: pct(pool.capacity) })}
+        </span>
       </p>
       <PoolFacts pool={pool} now={forecast.span.now} />
       <ForecastChart
@@ -159,7 +161,16 @@ function ProviderCard({
   );
 }
 
-export function QuotaForecast({ forecast, theme }: { forecast: Forecast; theme: ResolvedTheme }) {
+export function QuotaForecast({
+  forecast,
+  theme,
+  serverRecorded = false,
+}: {
+  forecast: Forecast;
+  theme: ResolvedTheme;
+  /** The proxy records history on its own, not only while this page is open. */
+  serverRecorded?: boolean;
+}) {
   const { t, absolute } = useQuotaFormat();
   const { total, providers, span } = forecast;
 
@@ -196,7 +207,9 @@ export function QuotaForecast({ forecast, theme }: { forecast: Forecast; theme: 
         <h2 id="quota-forecast-title">{t(`${NS}.title`)}</h2>
         <p>
           {total.recordingSince !== null
-            ? t(`${NS}.hint_since`, { date: absolute(total.recordingSince) })
+            ? t(`${NS}.${serverRecorded ? 'hint_since_server' : 'hint_since'}`, {
+                date: absolute(total.recordingSince),
+              })
             : t(`${NS}.hint_new`)}
         </p>
       </header>

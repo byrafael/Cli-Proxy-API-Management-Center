@@ -14,7 +14,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { authFilesApi } from '@/services/api';
+import { authFilesApi, quotaHistoryApi } from '@/services/api';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { IconEye, IconEyeOff, IconSearch, IconX } from '@/components/ui/icons';
@@ -32,6 +32,8 @@ import { QUOTA_PAGE_SIZE, QUOTA_TAB_ORDER } from './constants';
 import {
   latestSampleAt,
   loadHistory,
+  mergeHistory,
+  parseStoredHistory,
   recordSamples,
   saveHistory,
   type QuotaHistory,
@@ -69,6 +71,9 @@ import styles from './QuotaPage.module.scss';
 
 const NS = 'quota_management.home';
 const SKELETON_ROWS = 6;
+
+/** The proxy samples every 15 minutes; reading its history as often keeps the chart current. */
+const SERVER_HISTORY_POLL_MS = 15 * 60 * 1000;
 
 export function QuotaPage() {
   const { t } = useTranslation();
@@ -225,11 +230,31 @@ export function QuotaPage() {
     });
   }, [allAccounts]);
 
+  // The proxy records Claude and Codex on its own schedule, so its history covers
+  // time this browser was closed. null means this proxy has no recorder.
+  const [serverHistory, setServerHistory] = useState<QuotaHistory | null>(null);
+  const loadServerHistory = useCallback(() => {
+    if (connectionStatus !== 'connected') return;
+    quotaHistoryApi.get().then(
+      (body) => setServerHistory(parseStoredHistory(body)),
+      () => setServerHistory(null)
+    );
+  }, [connectionStatus]);
+  useEffect(loadServerHistory, [loadServerHistory]);
+  useInterval(loadServerHistory, connectionStatus === 'connected' ? SERVER_HISTORY_POLL_MS : null);
+  const chartHistory = useMemo(
+    () => (serverHistory ? mergeHistory(serverHistory, history) : history),
+    [serverHistory, history]
+  );
+
   // The minute clock can trail the newest sample; the forecast must include it.
-  const forecastNow = useMemo(() => Math.max(now, latestSampleAt(history)), [now, history]);
+  const forecastNow = useMemo(
+    () => Math.max(now, latestSampleAt(chartHistory)),
+    [now, chartHistory]
+  );
   const forecast = useMemo(
-    () => buildForecast(allAccounts, history, forecastNow),
-    [allAccounts, history, forecastNow]
+    () => buildForecast(allAccounts, chartHistory, forecastNow),
+    [allAccounts, chartHistory, forecastNow]
   );
 
   // 剪枝：文件列表落定后，各 provider 缓存只保留仍存在的凭证
@@ -491,7 +516,11 @@ export function QuotaPage() {
       />
 
       {!loading && entries.length > 0 && (
-        <QuotaForecast forecast={forecast} theme={resolvedTheme} />
+        <QuotaForecast
+          forecast={forecast}
+          theme={resolvedTheme}
+          serverRecorded={serverHistory !== null}
+        />
       )}
 
       <section className={styles.workbench}>
