@@ -425,12 +425,39 @@ test('card selection prefers usable recommendation and has deterministic fallbac
   }
 });
 
+test('grant kind follows scope.model and never rejects the block', () => {
+  const parsed = parseAnthropicResetGrantStatus({
+    ...block,
+    grants: [
+      { ...grant, id: 'acct' },
+      { ...grant, id: 'fable', scope: { model: { display_name: 'Fable 5' } } },
+      { ...grant, id: 'odd', scope: 'weird' },
+    ],
+  })!;
+  expect(parsed.grants.map((g) => [g.id, g.kind, g.model])).toEqual([
+    ['acct', 'account', null],
+    ['fable', 'model', 'Fable 5'],
+    ['odd', 'account', null],
+  ]);
+});
+
+test('selection narrows to a reset kind', () => {
+  const base = status();
+  const account = { ...base.grants[0], id: 'a', kind: 'account' as const };
+  const model = { ...account, id: 'm', kind: 'model' as const, model: 'Fable 5' };
+  const both = { ...base, grants: [account, model], nextGrantId: 'a' };
+  expect(selectResetGrant(both, 0)?.id).toBe('a');
+  expect(selectResetGrant(both, 0, 'model')?.id).toBe('m');
+  expect(selectResetGrant(both, 0, 'account')?.id).toBe('a');
+  expect(selectResetGrant({ ...both, grants: [account] }, 0, 'model')).toBeUndefined();
+});
+
 test('Claude card uses Codex count and action styles and shared confirmation, not a grant dialog', async () => {
   const card = await Bun.file('src/features/quota/components/QuotaCard.tsx').text();
   const hook = await Bun.file('src/features/quota/providers/claude/ClaudeResetGrants.tsx').text();
   expect(card).toContain('quotaClasses.codexPlanValue}>{claudeReset.count');
   expect(card).toContain('disabled={claudeReset.blocked}');
-  expect(card).toContain('onClick={claudeReset.confirm}');
+  expect(card).toContain('onClick={() => claudeReset.confirm()}');
   expect(hook).toContain('showConfirmation({');
   expect(hook).toContain("pending ? 'claude_reset.retry_confirm'");
   expect(hook).not.toContain('<Modal');

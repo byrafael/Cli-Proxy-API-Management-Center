@@ -6,6 +6,7 @@ import { useNotificationStore } from '@/stores';
 import { apiClient } from '@/services/api/client';
 import {
   AnthropicResetGrantError,
+  type AnthropicResetGrantKind,
   type AnthropicResetGrantStatus,
 } from '@/services/api/claudeResetGrants';
 import type { AuthFileItem } from '@/types';
@@ -81,7 +82,12 @@ export function useClaudeResetGrants(
   const expired = Boolean(pending && now - pending.createdAt >= RETRY_WINDOW_MS);
   const selected = pending?.grantId ?? (status ? selectResetGrant(status, now)?.id : undefined);
   const blocked = disabled || !sessionActive || !authIndex || busy || expired || !selected;
-  const confirm = () => {
+  /** A pending claim keeps its grant; otherwise `kind` narrows the pick to that reset type. */
+  const pickFor = (kind?: AnthropicResetGrantKind) =>
+    pending?.grantId ?? (status ? selectResetGrant(status, now, kind)?.id : undefined);
+  const canUse = (kind?: AnthropicResetGrantKind) => !blocked && Boolean(pickFor(kind));
+  const confirm = (kind?: AnthropicResetGrantKind) => {
+    const selected = pickFor(kind);
     if (blocked || lock.current || !selected || !authIndex) return;
     const version = generation.current;
     const current = () =>
@@ -137,6 +143,7 @@ export function useClaudeResetGrants(
     grants: status?.grants ?? [],
     busy,
     blocked,
+    canUse,
     confirm,
     message: pending ? (expired ? 'expired' : 'unknown') : message,
     buttonLabel: pending ? 'retry' : 'use',

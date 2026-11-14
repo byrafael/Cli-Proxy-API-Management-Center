@@ -1,12 +1,15 @@
 /**
- * 手动重置列：这个账号还存着几次重置、最近一次什么时候过期，并能直接使用。
+ * 手动重置列：这个账号还存着哪几类重置（整个账号 / 单个模型）、各自多少次、
+ * 最近一次什么时候过期，并能按类型直接使用。
  *
  * Codex 的重置积分已经在额度状态里；Claude 的重置授权（grants）要单独读取，
  * 复用旧卡片的 useClaudeResetGrants（含二次确认、重试窗口等保护），不重新实现。
  */
 
-import { useMemo, type ReactNode } from 'react';
-import { IconRefreshCw } from '@/components/ui/icons';
+import { useEffect, useId, useMemo, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
+import { IconRefreshCw, IconTimer, IconZap } from '@/components/ui/icons';
+import type { AnthropicResetGrantKind } from '@/services/api/claudeResetGrants';
 import { parseIsoToMs } from '@/utils/quota';
 import { useClaudeResetGrants } from '../providers/claude/ClaudeResetGrants';
 import type { QuotaFileEntry } from '../logic';
@@ -17,6 +20,8 @@ import { useQuotaFormat } from './useQuotaFormat';
 import styles from './QuotaResetsCell.module.scss';
 
 const NS = 'quota_management.home';
+const HOUR = 3_600_000;
+const KIND_ORDER: readonly AnthropicResetGrantKind[] = ['account', 'model'];
 
 /** 重置快过期才升温：存着不用就白白浪费了。 */
 const expiryTone = (deltaMs: number): Tone => {
@@ -25,11 +30,51 @@ const expiryTone = (deltaMs: number): Tone => {
 };
 
 interface ResetItem {
+  kind: AnthropicResetGrantKind;
   label: string;
+  model: string | null;
   left: number;
-  total: number | null;
   expiresAt: number | null;
 }
+
+interface ResetGroup {
+  kind: AnthropicResetGrantKind;
+  count: number;
+  nextExpiry: number | null;
+  items: ResetItem[];
+}
+
+/** Resets of one type that run out at the same minute. */
+interface ExpiryBucket {
+  expiresAt: number | null;
+  count: number;
+}
+
+/** Same-minute expiries are one date to a reader; undated resets sort last. */
+const expiryBuckets = (items: ResetItem[]): ExpiryBucket[] => {
+  const buckets = new Map<number | null, number>();
+  for (const item of items) {
+    const key = item.expiresAt === null ? null : Math.floor(item.expiresAt / 60_000) * 60_000;
+    buckets.set(key, (buckets.get(key) ?? 0) + item.left);
+  }
+  return [...buckets]
+    .map(([expiresAt, count]) => ({ expiresAt, count }))
+    .sort((a, b) => (a.expiresAt ?? Infinity) - (b.expiresAt ?? Infinity));
+};
+
+const groupByKind = (items: ResetItem[], now: number): ResetGroup[] =>
+  KIND_ORDER.map((kind) => {
+    const own = items.filter((item) => item.kind === kind);
+    const upcoming = own
+      .map((item) => item.expiresAt)
+      .filter((value): value is number => value !== null && value > now);
+    return {
+      kind,
+      count: own.reduce((sum, item) => sum + item.left, 0),
+      nextExpiry: upcoming.length > 0 ? Math.min(...upcoming) : null,
+      items: own,
+    };
+  }).filter((group) => group.count > 0);
 
 export interface QuotaResetsCellProps {
   entry: QuotaFileEntry;
@@ -54,6 +99,22 @@ export function QuotaResetsCell({
   onUseCodex,
 }: QuotaResetsCellProps) {
   const format = useQuotaFormat();
+  const tipId = useId();
+  const [openTip, setOpenTip] = useState<{
+    kind: AnthropicResetGrantKind;
+    rect: DOMRect;
+  } | null>(null);
+  // The card is fixed to the viewport, so any scroll would detach it from its row.
+  useEffect(() => {
+    if (!openTip) return;
+    const close = () => setOpenTip(null);
+    window.addEventListener('scroll', close, true);
+    window.addEventListener('resize', close);
+    return () => {
+      window.removeEventListener('scroll', close, true);
+      window.removeEventListener('resize', close);
+    };
+  }, [openTip]);
   const { t } = format;
   const status = quota?.status ?? 'idle';
   const loading = status === 'loading';
@@ -72,10 +133,12 @@ export function QuotaResetsCell({
     if (entry.type === 'codex' && loaded) {
       const credits = (quota as { rateLimitResetCredits?: { id: string; expiresAt: string }[] })
         .rateLimitResetCredits;
+      // A Codex credit clears the account's rate limits; there is no model-scoped credit.
       return (credits ?? []).map((credit, index) => ({
+        kind: 'account' as const,
         label: t('codex_quota.reset_credit_number', { index: index + 1 }),
+        model: null,
         left: 1,
-        total: null,
         expiresAt: parseIsoToMs(credit.expiresAt),
       }));
     }
@@ -83,14 +146,71 @@ export function QuotaResetsCell({
       return claude.grants
         .filter((grant) => grant.resetsLeft > 0)
         .map((grant, index) => ({
+          kind: grant.kind,
           label: grant.label || t('claude_reset.grant_number', { index: index + 1 }),
+          model: grant.model,
           left: grant.resetsLeft,
-          total: grant.resetsTotal,
           expiresAt: parseIsoToMs(grant.endsAt),
         }));
     }
     return [];
   }, [claude.grants, entry.type, loaded, quota, t]);
+
+  /** "118d" / "19h" / "40m": the stack row has room for one unit only. */
+  const shortCountdown = (ms: number) => {
+    if (ms >= DAY) return `${Math.floor(ms / DAY)}${t(`${NS}.unit_d`)}`;
+    if (ms >= HOUR) return `${Math.floor(ms / HOUR)}${t(`${NS}.unit_h`)}`;
+    return format.countdown(ms);
+  };
+  const bucketLine = (bucket: ExpiryBucket) =>
+    bucket.expiresAt === null
+      ? t(`${NS}.resets_tip_no_expiry`, { count: bucket.count })
+      : t(`${NS}.resets_tip_line`, {
+          count: bucket.count,
+          date: format.absolute(bucket.expiresAt),
+          time: format.countdown(bucket.expiresAt - now),
+        });
+  /** Hover/focus card: does every reset of this type expire together, or is the timer the earliest? */
+  const tipBody = (group: ResetGroup, blockedReason: string | null) => {
+    const buckets = expiryBuckets(group.items);
+    const models = [...new Set(group.items.map((item) => item.model).filter(Boolean))];
+    const kind = t(`${NS}.resets_kind_${group.kind}`);
+    const single = buckets.length === 1 && buckets[0].expiresAt !== null;
+    return (
+      <>
+        <span className={styles.tipTitle}>
+          {t(`${NS}.resets_tip_title`, { count: group.count, kind })}
+          {models.length > 0 && <span className={styles.tipModel}> · {models.join(', ')}</span>}
+        </span>
+        {single ? (
+          <span className={styles.tipLine}>
+            {t(`${NS}.resets_tip_all_same`, {
+              count: group.count,
+              date: format.absolute(buckets[0].expiresAt!),
+              time: format.countdown(buckets[0].expiresAt! - now),
+            })}
+          </span>
+        ) : (
+          <>
+            {buckets.length > 1 && (
+              <span className={styles.tipNote}>{t(`${NS}.resets_tip_earliest`)}</span>
+            )}
+            {buckets.map((bucket, index) => (
+              <span
+                key={bucket.expiresAt ?? 'none'}
+                className={`${styles.tipLine} ${index === 0 && buckets.length > 1 ? styles.tipFirst : ''}`}
+              >
+                {bucketLine(bucket)}
+              </span>
+            ))}
+          </>
+        )}
+        {blockedReason && <span className={styles.tipNote}>{blockedReason}</span>}
+      </>
+    );
+  };
+  const groupTone = (group: ResetGroup): Tone =>
+    group.nextExpiry !== null ? expiryTone(group.nextExpiry - now) : 'none';
 
   const supported = entry.type === 'claude' || entry.type === 'codex';
   const refreshAction = (
@@ -151,68 +271,142 @@ export function QuotaResetsCell({
     );
   }
 
-  const upcoming = items
-    .map((item) => item.expiresAt)
-    .filter((value): value is number => value !== null && value > now);
-  const nextExpiry = upcoming.length > 0 ? Math.min(...upcoming) : null;
-  const detail = items
-    .map((item) =>
-      item.expiresAt === null
-        ? item.label
-        : t(`${NS}.resets_detail_item`, {
-            label: item.label,
-            date: format.absolute(item.expiresAt),
-          })
-    )
-    .join('\n');
-  const tone = count > 0 && nextExpiry !== null ? expiryTone(nextExpiry - now) : 'none';
+  let groups = groupByKind(items, now);
+  // The backend summary can report Codex credits whose details failed to load.
+  if (entry.type === 'codex' && count > 0 && groups.length === 0) {
+    groups = [{ kind: 'account', count, nextExpiry: null, items: [] }];
+  }
 
-  const canUse =
-    entry.file.disabled !== true &&
-    (entry.type === 'codex' ? canAct && !resetting : !claude.blocked);
-  const showButton =
-    entry.type === 'codex' ? count > 0 : count > 0 || claude.buttonLabel === 'retry';
   const retrying = entry.type === 'claude' && claude.buttonLabel === 'retry';
   const busy = entry.type === 'claude' ? claude.busy : resetting;
+  const usable = (kind?: AnthropicResetGrantKind) =>
+    entry.file.disabled !== true &&
+    (entry.type === 'codex' ? canAct && !resetting : claude.canUse(kind));
+  const use = (kind?: AnthropicResetGrantKind) =>
+    entry.type === 'claude' ? claude.confirm(kind) : onUseCodex();
+  const useTitle =
+    entry.type === 'claude'
+      ? claude.blocked && !claude.busy
+        ? t(`${NS}.resets_when_limited`)
+        : t(`claude_reset.${claude.buttonLabel}`)
+      : t('codex_quota.reset_button');
+  const kindLabel = (group: ResetGroup) => t(`${NS}.resets_kind_${group.kind}`);
+  const message = claude.message && (
+    <span className={styles.message} role="status">
+      {t(`claude_reset.${claude.message}`)}
+    </span>
+  );
+  const retryButton = retrying && (
+    <button
+      type="button"
+      className={styles.use}
+      disabled={!usable()}
+      onClick={() => use()}
+      title={useTitle}
+      aria-busy={busy}
+    >
+      {busy ? '…' : t(`${NS}.resets_retry`)}
+    </button>
+  );
 
+  if (count === 0 || groups.length === 0) {
+    return (
+      <div className={styles.cell}>
+        {renderTop(
+          <span className={`${styles.count} ${styles.none}`}>{t(`${NS}.resets_none`)}</span>,
+          retryButton
+        )}
+        {message}
+      </div>
+    );
+  }
+
+  // One line per reset type, each with its own use action and expiry breakdown on hover.
   return (
     <div className={styles.cell}>
-      {renderTop(
-        <span
-          className={`${styles.count} ${count === 0 ? styles.none : ''} ${tone === 'none' ? '' : styles.warm} ${toneClassFor(tone)}`}
-          title={detail || undefined}
-        >
-          {count === 0 ? t(`${NS}.resets_none`) : t(`${NS}.resets_count`, { count })}
-        </span>,
-        showButton && (
-          <button
-            type="button"
-            className={styles.use}
-            disabled={!canUse}
-            onClick={entry.type === 'claude' ? claude.confirm : onUseCodex}
-            title={
-              entry.type === 'claude'
-                ? claude.blocked && !claude.busy
-                  ? t(`${NS}.resets_when_limited`)
-                  : t(`claude_reset.${claude.buttonLabel}`)
-                : t('codex_quota.reset_button')
-            }
-            aria-busy={busy}
-          >
-            {busy ? '…' : t(`${NS}.${retrying ? 'resets_retry' : 'resets_use'}`)}
-          </button>
-        )
-      )}
-      {nextExpiry !== null && count > 0 && (
-        <span className={styles.sub} title={format.absolute(nextExpiry)}>
-          {t(`${NS}.resets_next`, { time: format.countdown(nextExpiry - now) })}
-        </span>
-      )}
-      {claude.message && (
-        <span className={styles.message} role="status">
-          {t(`claude_reset.${claude.message}`)}
-        </span>
-      )}
+      <span className={styles.label}>{t(`${NS}.col_resets`)}</span>
+      <div className={styles.stack}>
+        <ul className={styles.kindList}>
+          {groups.map((group) => {
+            const tone = groupTone(group);
+            const kindUsable = usable(group.kind);
+            return (
+              <li
+                key={group.kind}
+                className={`${styles.kindRow} ${toneClassFor(tone)} ${tone === 'none' ? '' : styles.warm}`}
+                tabIndex={retrying ? 0 : undefined}
+                aria-describedby={`${tipId}-${group.kind}`}
+                onMouseEnter={(event) =>
+                  setOpenTip({ kind: group.kind, rect: event.currentTarget.getBoundingClientRect() })
+                }
+                onMouseLeave={() => setOpenTip(null)}
+                onFocus={(event) =>
+                  setOpenTip({ kind: group.kind, rect: event.currentTarget.getBoundingClientRect() })
+                }
+                onBlur={() => setOpenTip(null)}
+              >
+                <span className={styles.kindCount}>{group.count}</span>
+                <span className={styles.kindName}>{kindLabel(group)}</span>
+                {group.nextExpiry !== null && (
+                  <span
+                    className={styles.kindExpiry}
+                    aria-label={t(`${NS}.resets_next`, {
+                      time: format.countdown(group.nextExpiry - now),
+                    })}
+                  >
+                    <IconTimer size={13} aria-hidden="true" />
+                    {shortCountdown(group.nextExpiry - now)}
+                  </span>
+                )}
+                {!retrying && (
+                  <button
+                    type="button"
+                    className={styles.zap}
+                    disabled={!kindUsable}
+                    onClick={() => use(group.kind)}
+                    aria-label={t(`${NS}.resets_use_kind`, { kind: kindLabel(group) })}
+                    aria-busy={busy}
+                    aria-describedby={`${tipId}-${group.kind}`}
+                  >
+                    {busy ? '…' : <IconZap size={14} />}
+                  </button>
+                )}
+                <span id={`${tipId}-${group.kind}`} className={styles.srOnly}>
+                  {tipBody(group, !retrying && !kindUsable ? useTitle : null)}
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+        <div className={styles.stackActions}>
+          {retryButton}
+          {refreshAction}
+        </div>
+      </div>
+      {message}
+      {openTip &&
+        (() => {
+          const group = groups.find((candidate) => candidate.kind === openTip.kind);
+          if (!group) return null;
+          const { rect } = openTip;
+          // Open below the row; flip above when the row sits near the bottom of the screen.
+          const above = rect.bottom + 180 > window.innerHeight;
+          return createPortal(
+            <div
+              className={`${styles.tip} ${toneClassFor(groupTone(group))}`}
+              aria-hidden="true"
+              style={{
+                right: Math.max(8, window.innerWidth - rect.right),
+                ...(above
+                  ? { bottom: window.innerHeight - rect.top + 6 }
+                  : { top: rect.bottom + 6 }),
+              }}
+            >
+              {tipBody(group, !retrying && !usable(group.kind) ? useTitle : null)}
+            </div>,
+            document.body
+          );
+        })()}
     </div>
   );
 }
