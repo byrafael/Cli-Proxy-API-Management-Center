@@ -14,7 +14,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { authFilesApi } from '@/services/api';
+import { apiClient, authFilesApi, quotaHistoryApi } from '@/services/api';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { IconEye, IconEyeOff, IconSearch, IconX } from '@/components/ui/icons';
@@ -32,6 +32,9 @@ import { QUOTA_PAGE_SIZE, QUOTA_TAB_ORDER } from './constants';
 import {
   latestSampleAt,
   loadHistory,
+  hasSeriesFor,
+  mergeHistory,
+  parseStoredHistory,
   recordSamples,
   saveHistory,
   type QuotaHistory,
@@ -69,6 +72,9 @@ import styles from './QuotaPage.module.scss';
 
 const NS = 'quota_management.home';
 const SKELETON_ROWS = 6;
+
+/** The proxy samples every 15 minutes; reading its history as often keeps the chart current. */
+const SERVER_HISTORY_POLL_MS = 15 * 60 * 1000;
 
 export function QuotaPage() {
   const { t } = useTranslation();
@@ -225,11 +231,61 @@ export function QuotaPage() {
     });
   }, [allAccounts]);
 
+  // The proxy records Claude and Codex on its own schedule, so its history covers
+  // time this browser was closed. Each answer is tagged with the session it came
+  // from, so a late reply from a previous connection never lands on the new one.
+  const [serverHistory, setServerHistory] = useState<{
+    generation: number;
+    history: QuotaHistory;
+  } | null>(null);
+  const historyRequestRef = useRef(0);
+  const loadServerHistory = useCallback(() => {
+    const requestId = ++historyRequestRef.current;
+    if (connectionStatus !== 'connected') {
+      setServerHistory(null);
+      return;
+    }
+    const revision = apiClient.getConnectionRevision();
+    const client = apiClient.captureConnection();
+    const isCurrent = () =>
+      requestId === historyRequestRef.current &&
+      revision === apiClient.getConnectionRevision() &&
+      sessionGeneration === useQuotaStore.getState().cacheGeneration;
+    quotaHistoryApi.get(client).then(
+      (body) => {
+        if (isCurrent()) {
+          setServerHistory({ generation: sessionGeneration, history: parseStoredHistory(body) });
+        }
+      },
+      // No recorder on this proxy (or it is unreachable): chart the browser's samples only.
+      () => {
+        if (isCurrent()) setServerHistory(null);
+      }
+    );
+  }, [connectionStatus, sessionGeneration]);
+  useEffect(loadServerHistory, [loadServerHistory]);
+  useInterval(loadServerHistory, connectionStatus === 'connected' ? SERVER_HISTORY_POLL_MS : null);
+  // null means this proxy has no recorder, or its answer belongs to an older session.
+  const currentServerHistory =
+    serverHistory && serverHistory.generation === sessionGeneration ? serverHistory.history : null;
+  const chartHistory = useMemo(
+    () => (currentServerHistory ? mergeHistory(currentServerHistory, history) : history),
+    [currentServerHistory, history]
+  );
+  // Say the proxy recorded the chart only when its series belong to accounts shown here.
+  const serverRecorded = useMemo(
+    () => (currentServerHistory ? hasSeriesFor(currentServerHistory, allAccounts) : false),
+    [currentServerHistory, allAccounts]
+  );
+
   // The minute clock can trail the newest sample; the forecast must include it.
-  const forecastNow = useMemo(() => Math.max(now, latestSampleAt(history)), [now, history]);
+  const forecastNow = useMemo(
+    () => Math.max(now, latestSampleAt(chartHistory)),
+    [now, chartHistory]
+  );
   const forecast = useMemo(
-    () => buildForecast(allAccounts, history, forecastNow),
-    [allAccounts, history, forecastNow]
+    () => buildForecast(allAccounts, chartHistory, forecastNow),
+    [allAccounts, chartHistory, forecastNow]
   );
 
   // 剪枝：文件列表落定后，各 provider 缓存只保留仍存在的凭证
@@ -491,7 +547,7 @@ export function QuotaPage() {
       />
 
       {!loading && entries.length > 0 && (
-        <QuotaForecast forecast={forecast} theme={resolvedTheme} />
+        <QuotaForecast forecast={forecast} theme={resolvedTheme} serverRecorded={serverRecorded} />
       )}
 
       <section className={styles.workbench}>
