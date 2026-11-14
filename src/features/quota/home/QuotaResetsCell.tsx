@@ -290,6 +290,11 @@ export function QuotaResetsCell({
         ? t(`${NS}.resets_when_limited`)
         : t(`claude_reset.${claude.buttonLabel}`)
       : t('codex_quota.reset_button');
+  /** Why this type's use button is disabled, specific to the type when Claude can say. */
+  const blockedReasonFor = (kind: AnthropicResetGrantKind) => {
+    const key = entry.type === 'claude' ? claude.blockReason(kind) : null;
+    return key ? t(key) : useTitle;
+  };
   const kindLabel = (group: ResetGroup) => t(`${NS}.resets_kind_${group.kind}`);
   const message = claude.message && (
     <span className={styles.message} role="status">
@@ -334,14 +339,21 @@ export function QuotaResetsCell({
               <li
                 key={group.kind}
                 className={`${styles.kindRow} ${toneClassFor(tone)} ${tone === 'none' ? '' : styles.warm}`}
-                tabIndex={retrying ? 0 : undefined}
+                // Rows without a usable button still need a tab stop to reach their expiry card.
+                tabIndex={retrying || !kindUsable ? 0 : undefined}
                 aria-describedby={`${tipId}-${group.kind}`}
                 onMouseEnter={(event) =>
-                  setOpenTip({ kind: group.kind, rect: event.currentTarget.getBoundingClientRect() })
+                  setOpenTip({
+                    kind: group.kind,
+                    rect: event.currentTarget.getBoundingClientRect(),
+                  })
                 }
                 onMouseLeave={() => setOpenTip(null)}
                 onFocus={(event) =>
-                  setOpenTip({ kind: group.kind, rect: event.currentTarget.getBoundingClientRect() })
+                  setOpenTip({
+                    kind: group.kind,
+                    rect: event.currentTarget.getBoundingClientRect(),
+                  })
                 }
                 onBlur={() => setOpenTip(null)}
               >
@@ -372,7 +384,7 @@ export function QuotaResetsCell({
                   </button>
                 )}
                 <span id={`${tipId}-${group.kind}`} className={styles.srOnly}>
-                  {tipBody(group, !retrying && !kindUsable ? useTitle : null)}
+                  {tipBody(group, !retrying && !kindUsable ? blockedReasonFor(group.kind) : null)}
                 </span>
               </li>
             );
@@ -402,7 +414,10 @@ export function QuotaResetsCell({
                   : { top: rect.bottom + 6 }),
               }}
             >
-              {tipBody(group, !retrying && !usable(group.kind) ? useTitle : null)}
+              {tipBody(
+                group,
+                !retrying && !usable(group.kind) ? blockedReasonFor(group.kind) : null
+              )}
             </div>,
             document.body
           );

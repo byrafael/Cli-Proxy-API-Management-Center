@@ -479,3 +479,32 @@ test('account reads map upstream 429 to a sanitized typed rate-limit failure', a
   }
   expect(calls).toBe(2); // Neither read retries.
 });
+
+test('reset-type hover strings exist in six locales with every plural form they need', async () => {
+  const plurals: Record<string, string[]> = {
+    en: ['one', 'other'],
+    ko: ['other'],
+    vi: ['other'],
+    'zh-CN': ['other'],
+    'zh-TW': ['other'],
+    ru: ['one', 'few', 'many', 'other'],
+  };
+  const pluralKeys = [
+    'resets_tip_title',
+    'resets_tip_all_same',
+    'resets_tip_line',
+    'resets_tip_no_expiry',
+  ];
+  const plainKeys = [
+    'resets_kind_account',
+    'resets_kind_model',
+    'resets_use_kind',
+    'resets_tip_earliest',
+  ];
+  for (const [locale, forms] of Object.entries(plurals)) {
+    const home = (await Bun.file(`src/i18n/locales/${locale}.json`).json()).quota_management.home;
+    for (const key of plainKeys) expect(typeof home[key]).toBe('string');
+    for (const key of pluralKeys)
+      for (const form of forms) expect(typeof home[`${key}_${form}`]).toBe('string');
+  }
+});
