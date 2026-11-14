@@ -6,12 +6,21 @@
  * 复用旧卡片的 useClaudeResetGrants（含二次确认、重试窗口等保护），不重新实现。
  */
 
-import { useEffect, useId, useMemo, useState, type ReactNode } from 'react';
+import {
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
 import { createPortal } from 'react-dom';
 import { IconRefreshCw, IconTimer, IconZap } from '@/components/ui/icons';
 import type { AnthropicResetGrantKind } from '@/services/api/claudeResetGrants';
 import { parseIsoToMs } from '@/utils/quota';
-import { reconcileToSummaryCount, type ResetItem } from './resetItems';
+import { placeTip } from './tipPlacement';
+import { reconcileToSummaryCount, wholeCount, type ResetItem } from './resetItems';
 import { useClaudeResetGrants } from '../providers/claude/ClaudeResetGrants';
 import type { QuotaFileEntry } from '../logic';
 import type { QuotaCardState } from '../providers';
@@ -97,6 +106,19 @@ export function QuotaResetsCell({
     kind: AnthropicResetGrantKind;
     rect: DOMRect;
   } | null>(null);
+  const tipRef = useRef<HTMLDivElement>(null);
+  // Place the card from its measured size before paint, so it never shows off screen.
+  useLayoutEffect(() => {
+    const card = tipRef.current;
+    if (!openTip || !card) return;
+    const { top, left } = placeTip(openTip.rect, card.getBoundingClientRect(), {
+      width: window.innerWidth,
+      height: window.innerHeight,
+    });
+    card.style.top = `${top}px`;
+    card.style.left = `${left}px`;
+    card.style.visibility = 'visible';
+  }, [openTip]);
   // The card is fixed to the viewport, so any scroll would detach it from its row.
   useEffect(() => {
     if (!openTip) return;
@@ -239,8 +261,10 @@ export function QuotaResetsCell({
   // Codex 的数量优先取后端汇总（明细读取失败时仍有数字）。
   const codexCount =
     entry.type === 'codex'
-      ? ((quota as { rateLimitResetCreditsAvailableCount?: number | null })
-          .rateLimitResetCreditsAvailableCount ?? items.length)
+      ? wholeCount(
+          (quota as { rateLimitResetCreditsAvailableCount?: number | null })
+            .rateLimitResetCreditsAvailableCount ?? items.length
+        )
       : null;
   const claudeLoaded = entry.type === 'claude' && claude.count !== null;
   const count = entry.type === 'codex' ? (codexCount ?? 0) : (claude.count ?? null);
@@ -276,16 +300,17 @@ export function QuotaResetsCell({
     (entry.type === 'codex' ? canAct && !resetting : claude.canUse(kind));
   const use = (kind?: AnthropicResetGrantKind) =>
     entry.type === 'claude' ? claude.confirm(kind) : onUseCodex();
+  // Action label only. Why an action is disabled comes from blockedReasonFor.
   const useTitle =
     entry.type === 'claude'
-      ? claude.blocked && !claude.busy
-        ? t(`${NS}.resets_when_limited`)
-        : t(`claude_reset.${claude.buttonLabel}`)
+      ? t(`claude_reset.${claude.buttonLabel}`)
       : t('codex_quota.reset_button');
   /** Why this type's use button is disabled, specific to the type when Claude can say. */
-  const blockedReasonFor = (kind: AnthropicResetGrantKind) => {
+  const blockedReasonFor = (kind: AnthropicResetGrantKind): string | null => {
+    if (entry.file.disabled === true) return t(`${NS}.resets_file_disabled`);
     const key = entry.type === 'claude' ? claude.blockReason(kind) : null;
-    return key ? t(key) : useTitle;
+    // Transient page state (loading, refreshing, a claim in flight) has no reason worth showing.
+    return key ? t(key) : null;
   };
   const kindLabel = (group: ResetGroup) => t(`${NS}.resets_kind_${group.kind}`);
   const message = claude.message && (
@@ -392,19 +417,13 @@ export function QuotaResetsCell({
         (() => {
           const group = groups.find((candidate) => candidate.kind === openTip.kind);
           if (!group) return null;
-          const { rect } = openTip;
-          // Open below the row; flip above when the row sits near the bottom of the screen.
-          const above = rect.bottom + 180 > window.innerHeight;
+          // Hidden until the layout effect measures it and sets its position.
           return createPortal(
             <div
+              ref={tipRef}
               className={`${styles.tip} ${toneClassFor(groupTone(group))}`}
               aria-hidden="true"
-              style={{
-                right: Math.max(8, window.innerWidth - rect.right),
-                ...(above
-                  ? { bottom: window.innerHeight - rect.top + 6 }
-                  : { top: rect.bottom + 6 }),
-              }}
+              style={{ top: 0, left: 0, visibility: 'hidden' }}
             >
               {tipBody(
                 group,

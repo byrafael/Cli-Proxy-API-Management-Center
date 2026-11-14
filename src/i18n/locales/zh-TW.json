@@ -1742,6 +1742,7 @@
       "resets_kind_account": "帳號",
       "resets_kind_model": "模型",
       "resets_use_kind": "重設{{kind}}額度",
+      "resets_file_disabled": "此憑證已停用",
       "resets_tip_title_one": "{{count}} 次{{kind}}重設",
       "resets_tip_title_other": "{{count}} 次{{kind}}重設",
       "resets_tip_all_same_one": "{{date}} 到期 · {{time}} 後",

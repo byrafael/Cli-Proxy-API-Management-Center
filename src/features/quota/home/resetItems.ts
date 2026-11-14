@@ -14,10 +14,14 @@ export interface ResetItem {
  * Keep the soonest-expiring details up to the summary, then list any missing
  * credits as undated account resets, so the count and breakdown always agree.
  */
+/** Counts from upstream can arrive fractional or negative; a reset count is a whole number. */
+export const wholeCount = (value: number): number =>
+  Number.isFinite(value) ? Math.max(0, Math.floor(value)) : 0;
+
 export const reconcileToSummaryCount = (items: ResetItem[], summary: number): ResetItem[] => {
   const sorted = [...items].sort((a, b) => (a.expiresAt ?? Infinity) - (b.expiresAt ?? Infinity));
   const kept: ResetItem[] = [];
-  let remaining = Math.max(0, summary);
+  let remaining = wholeCount(summary);
   for (const item of sorted) {
     if (remaining === 0) break;
     const left = Math.min(item.left, remaining);

@@ -1,5 +1,6 @@
 import { selectResetGrant } from '../src/features/quota/providers/claude/selectResetGrant';
-import { reconcileToSummaryCount } from '../src/features/quota/home/resetItems';
+import { reconcileToSummaryCount, wholeCount } from '../src/features/quota/home/resetItems';
+import { placeTip } from '../src/features/quota/home/tipPlacement';
 
 import { afterEach, describe, expect, test } from 'bun:test';
 import {
@@ -504,9 +505,10 @@ test('reset-type hover strings exist in six locales with every plural form they 
   ];
   for (const [locale, forms] of Object.entries(plurals)) {
     const home = (await Bun.file(`src/i18n/locales/${locale}.json`).json()).quota_management.home;
-    for (const key of plainKeys) expect(typeof home[key]).toBe('string');
+    const filled = (value: unknown) => typeof value === 'string' && value.trim().length > 0;
+    for (const key of [...plainKeys, 'resets_file_disabled']) expect(filled(home[key])).toBe(true);
     for (const key of pluralKeys)
-      for (const form of forms) expect(typeof home[`${key}_${form}`]).toBe('string');
+      for (const form of forms) expect(filled(home[`${key}_${form}`])).toBe(true);
   }
 });
 
@@ -537,4 +539,34 @@ test('Codex summary count wins over partial or extra credit details', () => {
   expect(reconcileToSummaryCount([], 2)).toEqual([
     { kind: 'account', label: '', model: null, left: 2, expiresAt: null },
   ]);
+});
+
+test('reset counts are whole and never negative', () => {
+  const dated = { kind: 'account' as const, label: 'Credit 1', model: null, left: 1, expiresAt: 5 };
+  expect(wholeCount(2.7)).toBe(2);
+  expect(wholeCount(-1)).toBe(0);
+  expect(wholeCount(Number.NaN)).toBe(0);
+  expect(reconcileToSummaryCount([dated], 2.5)).toEqual([
+    dated,
+    { kind: 'account', label: '', model: null, left: 1, expiresAt: null },
+  ]);
+});
+
+test('hover card stays inside the viewport', () => {
+  const viewport = { width: 1000, height: 800 };
+  const card = { width: 300, height: 200 };
+  // Room below: right-aligned under the row.
+  expect(placeTip({ top: 100, bottom: 130, right: 900 }, card, viewport)).toEqual({
+    top: 136,
+    left: 600,
+  });
+  // Near the bottom: flips above the row.
+  expect(placeTip({ top: 700, bottom: 730, right: 900 }, card, viewport)).toEqual({
+    top: 494,
+    left: 600,
+  });
+  // Near the left edge and too tall for either side: clamped to the margins.
+  expect(
+    placeTip({ top: 300, bottom: 330, right: 100 }, { width: 300, height: 900 }, viewport)
+  ).toEqual({ top: 8, left: 8 });
 });

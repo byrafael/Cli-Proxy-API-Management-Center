@@ -1717,6 +1717,7 @@
       "resets_kind_account": "계정",
       "resets_kind_model": "모델",
       "resets_use_kind": "{{kind}} 한도 재설정",
+      "resets_file_disabled": "이 자격 증명은 비활성화되어 있습니다",
       "resets_tip_title_one": "{{kind}} 초기화 {{count}}회",
       "resets_tip_title_other": "{{kind}} 초기화 {{count}}회",
       "resets_tip_all_same_one": "{{date}} 만료 · {{time}} 후",

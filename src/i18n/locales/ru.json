@@ -1722,6 +1722,7 @@
       "resets_kind_account": "аккаунт",
       "resets_kind_model": "модель",
       "resets_use_kind": "Сбросить лимиты: {{kind}}",
+      "resets_file_disabled": "Эти учётные данные отключены",
       "resets_tip_title_one": "{{count}} сброс ({{kind}})",
       "resets_tip_title_other": "{{count}} сбросов ({{kind}})",
       "resets_tip_title_few": "{{count}} сброса ({{kind}})",

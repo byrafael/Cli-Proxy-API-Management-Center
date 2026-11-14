@@ -1673,6 +1673,7 @@
       "resets_kind_account": "tài khoản",
       "resets_kind_model": "mô hình",
       "resets_use_kind": "Đặt lại giới hạn {{kind}}",
+      "resets_file_disabled": "Thông tin xác thực này đã bị tắt",
       "resets_tip_title_one": "{{count}} lần đặt lại {{kind}}",
       "resets_tip_title_other": "{{count}} lần đặt lại {{kind}}",
       "resets_tip_all_same_one": "Hết hạn {{date}} · sau {{time}}",

@@ -1717,6 +1717,7 @@
       "resets_kind_account": "account",
       "resets_kind_model": "model",
       "resets_use_kind": "Reset {{kind}} limits",
+      "resets_file_disabled": "This credential is disabled",
       "resets_tip_title_one": "{{count}} {{kind}} reset",
       "resets_tip_title_other": "{{count}} {{kind}} resets",
       "resets_tip_all_same_one": "Expires {{date}} · in {{time}}",

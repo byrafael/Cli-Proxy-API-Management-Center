@@ -1714,6 +1714,7 @@
       "resets_kind_account": "账号",
       "resets_kind_model": "模型",
       "resets_use_kind": "重置{{kind}}额度",
+      "resets_file_disabled": "此凭证已停用",
       "resets_tip_title_one": "{{count}} 次{{kind}}重置",
       "resets_tip_title_other": "{{count}} 次{{kind}}重置",
       "resets_tip_all_same_one": "{{date}} 过期 · {{time}} 后",
