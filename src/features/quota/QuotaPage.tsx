@@ -14,7 +14,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { authFilesApi, quotaHistoryApi } from '@/services/api';
+import { apiClient, authFilesApi, quotaHistoryApi } from '@/services/api';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { IconEye, IconEyeOff, IconSearch, IconX } from '@/components/ui/icons';
@@ -231,20 +231,44 @@ export function QuotaPage() {
   }, [allAccounts]);
 
   // The proxy records Claude and Codex on its own schedule, so its history covers
-  // time this browser was closed. null means this proxy has no recorder.
-  const [serverHistory, setServerHistory] = useState<QuotaHistory | null>(null);
+  // time this browser was closed. Each answer is tagged with the session it came
+  // from, so a late reply from a previous connection never lands on the new one.
+  const [serverHistory, setServerHistory] = useState<{
+    generation: number;
+    history: QuotaHistory;
+  } | null>(null);
+  const historyRequestRef = useRef(0);
   const loadServerHistory = useCallback(() => {
-    if (connectionStatus !== 'connected') return;
+    const requestId = ++historyRequestRef.current;
+    if (connectionStatus !== 'connected') {
+      setServerHistory(null);
+      return;
+    }
+    const revision = apiClient.getConnectionRevision();
+    const isCurrent = () =>
+      requestId === historyRequestRef.current &&
+      revision === apiClient.getConnectionRevision() &&
+      sessionGeneration === useQuotaStore.getState().cacheGeneration;
     quotaHistoryApi.get().then(
-      (body) => setServerHistory(parseStoredHistory(body)),
-      () => setServerHistory(null)
+      (body) => {
+        if (isCurrent()) {
+          setServerHistory({ generation: sessionGeneration, history: parseStoredHistory(body) });
+        }
+      },
+      // No recorder on this proxy (or it is unreachable): chart the browser's samples only.
+      () => {
+        if (isCurrent()) setServerHistory(null);
+      }
     );
-  }, [connectionStatus]);
+  }, [connectionStatus, sessionGeneration]);
   useEffect(loadServerHistory, [loadServerHistory]);
   useInterval(loadServerHistory, connectionStatus === 'connected' ? SERVER_HISTORY_POLL_MS : null);
+  // null means this proxy has no recorder, or its answer belongs to an older session.
+  const currentServerHistory =
+    serverHistory && serverHistory.generation === sessionGeneration ? serverHistory.history : null;
   const chartHistory = useMemo(
-    () => (serverHistory ? mergeHistory(serverHistory, history) : history),
-    [serverHistory, history]
+    () => (currentServerHistory ? mergeHistory(currentServerHistory, history) : history),
+    [currentServerHistory, history]
   );
 
   // The minute clock can trail the newest sample; the forecast must include it.
@@ -519,7 +543,7 @@ export function QuotaPage() {
         <QuotaForecast
           forecast={forecast}
           theme={resolvedTheme}
-          serverRecorded={serverHistory !== null}
+          serverRecorded={currentServerHistory !== null}
         />
       )}
 
