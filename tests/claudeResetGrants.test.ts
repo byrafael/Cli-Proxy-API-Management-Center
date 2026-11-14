@@ -1,4 +1,5 @@
 import { selectResetGrant } from '../src/features/quota/providers/claude/selectResetGrant';
+import { padToSummaryCount } from '../src/features/quota/home/resetItems';
 
 import { afterEach, describe, expect, test } from 'bun:test';
 import {
@@ -507,4 +508,28 @@ test('reset-type hover strings exist in six locales with every plural form they 
     for (const key of pluralKeys)
       for (const form of forms) expect(typeof home[`${key}_${form}`]).toBe('string');
   }
+});
+
+test('only a scope.model block marks a model grant', () => {
+  const parsed = parseAnthropicResetGrantStatus({
+    ...block,
+    grants: [
+      { ...grant, id: 'k', kind: 'model' },
+      { ...grant, id: 's', scope: 'model' },
+      { ...grant, id: 'n', scope: { model: null } },
+    ],
+  })!;
+  expect(parsed.grants.map((g) => g.kind)).toEqual(['account', 'account', 'account']);
+});
+
+test('Codex summary count wins over partial credit details', () => {
+  const dated = { kind: 'account' as const, label: 'Credit 1', model: null, left: 1, expiresAt: 5 };
+  expect(padToSummaryCount([dated], 3)).toEqual([
+    dated,
+    { kind: 'account', label: '', model: null, left: 2, expiresAt: null },
+  ]);
+  expect(padToSummaryCount([dated], 1)).toEqual([dated]);
+  expect(padToSummaryCount([], 2)).toEqual([
+    { kind: 'account', label: '', model: null, left: 2, expiresAt: null },
+  ]);
 });

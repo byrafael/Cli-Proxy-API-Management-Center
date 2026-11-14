@@ -1724,8 +1724,8 @@
       "resets_tip_earliest": "만료일이 서로 다릅니다. 타이머는 가장 빠른 만료를 표시합니다.",
       "resets_tip_line_one": "{{count}}회 {{date}} 만료 · {{time}} 후",
       "resets_tip_line_other": "{{count}}회 {{date}} 만료 · {{time}} 후",
-      "resets_tip_no_expiry_one": "{{count}}회 만료일 없음",
-      "resets_tip_no_expiry_other": "{{count}}회 만료일 없음",
+      "resets_tip_no_expiry_one": "{{count}}회 만료일 알 수 없음",
+      "resets_tip_no_expiry_other": "{{count}}회 만료일 알 수 없음",
       "resets_when_limited": "Claude는 계정이 한도에 도달했을 때만 수동 초기화를 허용합니다",
       "token_refreshed": "토큰 갱신",
       "back_in": "{{time}} 후 복구"

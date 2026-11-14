@@ -11,6 +11,7 @@ import { createPortal } from 'react-dom';
 import { IconRefreshCw, IconTimer, IconZap } from '@/components/ui/icons';
 import type { AnthropicResetGrantKind } from '@/services/api/claudeResetGrants';
 import { parseIsoToMs } from '@/utils/quota';
+import { padToSummaryCount, type ResetItem } from './resetItems';
 import { useClaudeResetGrants } from '../providers/claude/ClaudeResetGrants';
 import type { QuotaFileEntry } from '../logic';
 import type { QuotaCardState } from '../providers';
@@ -28,14 +29,6 @@ const expiryTone = (deltaMs: number): Tone => {
   if (deltaMs <= DAY) return 'low';
   return deltaMs <= 3 * DAY ? 'medium' : 'none';
 };
-
-interface ResetItem {
-  kind: AnthropicResetGrantKind;
-  label: string;
-  model: string | null;
-  left: number;
-  expiresAt: number | null;
-}
 
 interface ResetGroup {
   kind: AnthropicResetGrantKind;
@@ -271,11 +264,7 @@ export function QuotaResetsCell({
     );
   }
 
-  let groups = groupByKind(items, now);
-  // The backend summary can report Codex credits whose details failed to load.
-  if (entry.type === 'codex' && count > 0 && groups.length === 0) {
-    groups = [{ kind: 'account', count, nextExpiry: null, items: [] }];
-  }
+  const groups = groupByKind(entry.type === 'codex' ? padToSummaryCount(items, count) : items, now);
 
   const retrying = entry.type === 'claude' && claude.buttonLabel === 'retry';
   const busy = entry.type === 'claude' ? claude.busy : resetting;

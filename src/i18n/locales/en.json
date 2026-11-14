@@ -1724,8 +1724,8 @@
       "resets_tip_earliest": "Expiry dates differ. The timer shows the earliest.",
       "resets_tip_line_one": "{{count}} expires {{date}} · in {{time}}",
       "resets_tip_line_other": "{{count}} expire {{date}} · in {{time}}",
-      "resets_tip_no_expiry_one": "{{count}} has no expiry date",
-      "resets_tip_no_expiry_other": "{{count}} have no expiry date",
+      "resets_tip_no_expiry_one": "{{count}} has no known expiry date",
+      "resets_tip_no_expiry_other": "{{count}} have no known expiry date",
       "resets_when_limited": "Claude only allows a manual reset while the account is limited",
       "token_refreshed": "Token refreshed",
       "back_in": "back in {{time}}"

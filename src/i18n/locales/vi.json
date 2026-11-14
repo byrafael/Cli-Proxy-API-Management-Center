@@ -1680,8 +1680,8 @@
       "resets_tip_earliest": "Ngày hết hạn khác nhau. Bộ đếm hiển thị ngày sớm nhất.",
       "resets_tip_line_one": "{{count}} hết hạn {{date}} · sau {{time}}",
       "resets_tip_line_other": "{{count}} hết hạn {{date}} · sau {{time}}",
-      "resets_tip_no_expiry_one": "{{count}} không có ngày hết hạn",
-      "resets_tip_no_expiry_other": "{{count}} không có ngày hết hạn",
+      "resets_tip_no_expiry_one": "{{count}} chưa rõ ngày hết hạn",
+      "resets_tip_no_expiry_other": "{{count}} chưa rõ ngày hết hạn",
       "resets_when_limited": "Claude chỉ cho phép đặt lại thủ công khi tài khoản đã hết hạn mức",
       "token_refreshed": "Token được làm mới",
       "back_in": "có lại sau {{time}}"

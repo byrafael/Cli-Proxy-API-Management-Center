@@ -150,9 +150,9 @@ function parsePercentUsed(value: unknown): Partial<Record<AnthropicResetWindow, 
 }
 
 /**
- * Grants mirror the usage `limits` shape: a `scope.model` block marks a
- * model-scoped grant; anything else resets the account. Unknown shapes never
- * reject the block, because the kind is display-only.
+ * Grants mirror the usage `limits` shape: only a `scope.model` block marks a
+ * model-scoped grant; every other shape resets the account. Unknown shapes
+ * never reject the block, because the kind is display-only.
  */
 function parseGrantScope(value: Record<string, unknown>): {
   kind: AnthropicResetGrantKind;
@@ -163,7 +163,6 @@ function parseGrantScope(value: Record<string, unknown>): {
     const name = safeLabel(scope.model.display_name ?? scope.model.name);
     return { kind: 'model', model: name || null };
   }
-  if (value.kind === 'model' || value.scope === 'model') return { kind: 'model', model: null };
   return { kind: 'account', model: null };
 }
 

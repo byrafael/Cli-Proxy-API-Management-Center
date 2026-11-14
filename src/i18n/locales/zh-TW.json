@@ -1749,8 +1749,8 @@
       "resets_tip_earliest": "到期時間不同，計時顯示的是最早的一次。",
       "resets_tip_line_one": "{{count}} 次於 {{date}} 到期 · {{time}} 後",
       "resets_tip_line_other": "{{count}} 次於 {{date}} 到期 · {{time}} 後",
-      "resets_tip_no_expiry_one": "{{count}} 次沒有到期時間",
-      "resets_tip_no_expiry_other": "{{count}} 次沒有到期時間",
+      "resets_tip_no_expiry_one": "{{count}} 次到期時間未知",
+      "resets_tip_no_expiry_other": "{{count}} 次到期時間未知",
       "resets_when_limited": "Claude 只允許在帳號被限額時使用手動重置",
       "token_refreshed": "Token 刷新時間",
       "back_in": "{{time}}後恢復"
