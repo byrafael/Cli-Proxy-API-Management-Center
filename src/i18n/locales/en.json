@@ -1729,7 +1729,16 @@
       "resets_tip_no_expiry_other": "{{count}} have no known expiry date",
       "resets_when_limited": "Claude only allows a manual reset while the account is limited",
       "token_refreshed": "Token refreshed",
-      "back_in": "back in {{time}}"
+      "back_in": "back in {{time}}",
+      "limit_low": "Low",
+      "limit_critical": "Very low",
+      "pool": "<0>{{remaining}}%</0> of {{capacity}}% pool",
+      "pool_next_reset": "Next reset +{{gain}}% · {{time}}",
+      "pool_window_weekly": "Sum of each account's weekly limit",
+      "pool_window_session": "Sum of each account's 5-hour limit",
+      "pool_window_mixed": "Sum of each account's weekly limit, or its 5-hour limit when it has no weekly one",
+      "pool_excluded": "Not counted, no quota data: {{count}}",
+      "pool_reset_tip": "{{time}} · {{accounts}}"
     },
     "forecast": {
       "title": "Usage forecast",

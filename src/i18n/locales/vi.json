@@ -1685,7 +1685,16 @@
       "resets_tip_no_expiry_other": "{{count}} chưa rõ ngày hết hạn",
       "resets_when_limited": "Claude chỉ cho phép đặt lại thủ công khi tài khoản đã hết hạn mức",
       "token_refreshed": "Token được làm mới",
-      "back_in": "có lại sau {{time}}"
+      "back_in": "có lại sau {{time}}",
+      "limit_low": "Thấp",
+      "limit_critical": "Rất thấp",
+      "pool": "<0>{{remaining}}%</0> / {{capacity}}% tổng hạn mức",
+      "pool_next_reset": "Lần đặt lại tới +{{gain}}% · {{time}}",
+      "pool_window_weekly": "Tổng hạn mức tuần của từng tài khoản",
+      "pool_window_session": "Tổng hạn mức 5 giờ của từng tài khoản",
+      "pool_window_mixed": "Tổng hạn mức tuần của từng tài khoản, hoặc hạn mức 5 giờ nếu không có hạn mức tuần",
+      "pool_excluded": "Không tính, thiếu dữ liệu hạn mức: {{count}}",
+      "pool_reset_tip": "{{time}} · {{accounts}}"
     },
     "forecast": {
       "title": "Dự báo mức dùng",

@@ -9,8 +9,11 @@ import {
   accountTitle,
   filterAccounts,
   formatCountdown,
+  formatResetDay,
   groupAccounts,
+  lowLevel,
   maskEmail,
+  providerPool,
   nextEventAt,
   redactEmailsIn,
   summarize,
@@ -29,12 +32,23 @@ const byId = (id: string) => {
 };
 
 describe('quota home tones and formatting', () => {
-  test('uses the same thresholds as the quota meter', () => {
+  test('uses the same thresholds as the quota meter: red only below 5%', () => {
     expect(toneFor(70)).toBe('high');
     expect(toneFor(69)).toBe('medium');
-    expect(toneFor(30)).toBe('medium');
-    expect(toneFor(29)).toBe('low');
+    expect(toneFor(11)).toBe('medium');
+    expect(toneFor(5)).toBe('medium');
+    expect(toneFor(4)).toBe('low');
     expect(toneFor(null)).toBe('none');
+  });
+
+  test('warns Low below 15% and Very low below 5%', () => {
+    expect(lowLevel(15)).toBeNull();
+    expect(lowLevel(14)).toBe('low');
+    expect(lowLevel(11)).toBe('low');
+    expect(lowLevel(5)).toBe('low');
+    expect(lowLevel(4)).toBe('critical');
+    expect(lowLevel(0)).toBe('critical');
+    expect(lowLevel(null)).toBeNull();
   });
 
   test('formats countdowns and takes injected units', () => {
@@ -229,5 +243,72 @@ describe('quota home ui state', () => {
   test('validates persisted grouping', () => {
     expect(isQuotaGroupBy('email')).toBe(true);
     expect(isQuotaGroupBy('nope')).toBe(false);
+  });
+});
+
+describe('provider pool', () => {
+  const limit = (remainingPct: number, resetsAt: number) => ({ remainingPct, resetsAt });
+  const base = {
+    id: 'a',
+    provider: 'codex' as const,
+    email: 'a@x.dev',
+    name: 'a',
+    plan: null,
+    planTier: 'unknown' as const,
+    authExpiresAt: null,
+    lastRefreshAt: null,
+    fiveHour: null,
+    weekly: null,
+    fable: null,
+  };
+
+  test('sums remaining over primary limits against 100 per counted account', () => {
+    const pool = providerPool(
+      [
+        { ...base, id: 'w1', weekly: limit(80, NOW + 2 * DAY), fiveHour: limit(10, NOW + HOUR) },
+        { ...base, id: 'w2', weekly: limit(9, NOW + 3 * DAY) },
+        { ...base, id: 's1', fiveHour: limit(50, NOW + 2 * HOUR) },
+        { ...base, id: 'off', weekly: limit(100, NOW + DAY), disabled: true },
+        { ...base, id: 'err', error: 'boom' },
+        { ...base, id: 'wait', pending: true },
+      ],
+      NOW
+    )!;
+    expect(pool.remainingPct).toBe(139);
+    expect(pool.capacityPct).toBe(300);
+    expect(pool.accounts.map((a) => a.id)).toEqual(['w1', 'w2', 's1']);
+    expect(pool.excluded).toBe(3);
+    expect(pool.window).toBe('mixed');
+    // The soonest primary reset that gives something back: s1's session, +50%.
+    expect(pool.nextReset).toMatchObject({ at: NOW + 2 * HOUR, gainPct: 50 });
+  });
+
+  test('adds up accounts resetting together and skips full limits', () => {
+    const pool = providerPool(
+      [
+        { ...base, id: 'full', weekly: limit(100, NOW + HOUR) },
+        { ...base, id: 'a', weekly: limit(9, NOW + DAY) },
+        { ...base, id: 'b', weekly: limit(40, NOW + DAY + 10 * MINUTE) },
+        { ...base, id: 'later', weekly: limit(0, NOW + 2 * DAY) },
+      ],
+      NOW
+    )!;
+    expect(pool.window).toBe('weekly');
+    expect(pool.nextReset?.at).toBe(NOW + DAY);
+    expect(pool.nextReset?.gainPct).toBe(151);
+    expect(pool.nextReset?.accounts.map((a) => a.id)).toEqual(['a', 'b']);
+  });
+
+  test('has no pool without a loaded limit, and no reset when nothing is used', () => {
+    expect(providerPool([{ ...base, pending: true }], NOW)).toBeNull();
+    const full = providerPool([{ ...base, fiveHour: limit(100, NOW + HOUR) }], NOW)!;
+    expect(full.window).toBe('session');
+    expect(full.nextReset).toBeNull();
+  });
+
+  test('formats a reset within the week by weekday, later ones by date', () => {
+    // NOW is Tue Oct 20 12:00 UTC; three days later is a Friday in every zone near UTC.
+    expect(formatResetDay(NOW + 3 * DAY, NOW, 'en-US')).toMatch(/^Fri \d{1,2}:00\s?[AP]M$/);
+    expect(formatResetDay(NOW + 8 * DAY, NOW, 'en-US')).toMatch(/^Oct 28\b/);
   });
 });

@@ -87,7 +87,7 @@ export function QuotaPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [groupBy, setGroupBy] = useState<GroupBy>(() => readQuotaUiState()?.groupBy ?? 'provider');
-  const [redact, setRedact] = useState<boolean>(() => readQuotaUiState()?.redactEmails ?? false);
+  const [redact, setRedact] = useState<boolean>(() => readQuotaUiState()?.redactEmails ?? true);
   const [attentionOnly, setAttentionOnly] = useState(false);
   const [search, setSearch] = useState('');
   const searchInputRef = useRef<HTMLInputElement>(null);

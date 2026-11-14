@@ -4,6 +4,7 @@
  */
 
 import type { CSSProperties } from 'react';
+import { IconAlertTriangle } from '@/components/ui/icons';
 import type { ResolvedTheme } from '@/types';
 import {
   getAuthFileIcon,
@@ -15,6 +16,7 @@ import {
   PROVIDER_LABEL,
   accountStatus,
   clampPct,
+  lowLevel,
   timeTone,
   toneFor,
   type AccountStatus,
@@ -96,6 +98,7 @@ export function LimitBar({
   }
   const pct = clampPct(limit.remainingPct);
   const tone = toneFor(pct);
+  const low = lowLevel(pct);
   const displayLabel = label ?? limit.label;
   return (
     <span
@@ -104,7 +107,15 @@ export function LimitBar({
     >
       <span className={styles.limitHeading}>
         {displayLabel && <span className={styles.limitLabel}>{displayLabel}</span>}
-        <span className={styles.limitPct}>{pct}%</span>
+        <span className={styles.limitValue}>
+          <span className={`${styles.limitPct} ${low ? styles.limitPctLow : ''}`}>{pct}%</span>
+          {low && (
+            <span className={styles.lowBadge}>
+              <IconAlertTriangle size={13} aria-hidden="true" />
+              {format.t(`quota_management.home.limit_${low}`)}
+            </span>
+          )}
+        </span>
       </span>
       <span className={styles.track} aria-hidden="true">
         <span className={styles.fill} style={{ width: `${pct}%` }} />
