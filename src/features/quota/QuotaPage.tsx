@@ -32,6 +32,7 @@ import { QUOTA_PAGE_SIZE, QUOTA_TAB_ORDER } from './constants';
 import {
   latestSampleAt,
   loadHistory,
+  hasSeriesFor,
   mergeHistory,
   parseStoredHistory,
   recordSamples,
@@ -270,6 +271,11 @@ export function QuotaPage() {
   const chartHistory = useMemo(
     () => (currentServerHistory ? mergeHistory(currentServerHistory, history) : history),
     [currentServerHistory, history]
+  );
+  // Say the proxy recorded the chart only when its series belong to accounts shown here.
+  const serverRecorded = useMemo(
+    () => (currentServerHistory ? hasSeriesFor(currentServerHistory, allAccounts) : false),
+    [currentServerHistory, allAccounts]
   );
 
   // The minute clock can trail the newest sample; the forecast must include it.
@@ -541,11 +547,7 @@ export function QuotaPage() {
       />
 
       {!loading && entries.length > 0 && (
-        <QuotaForecast
-          forecast={forecast}
-          theme={resolvedTheme}
-          serverRecorded={currentServerHistory !== null}
-        />
+        <QuotaForecast forecast={forecast} theme={resolvedTheme} serverRecorded={serverRecorded} />
       )}
 
       <section className={styles.workbench}>

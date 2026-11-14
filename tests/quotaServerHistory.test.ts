@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import {
+  hasSeriesFor,
   mergeHistory,
   parseStoredHistory,
   serializeHistory,
@@ -78,6 +79,13 @@ describe('server quota history', () => {
     // Inputs are not modified.
     expect(server['a#weekly'].points).toHaveLength(2);
     expect(local['a#weekly'].points).toHaveLength(2);
+  });
+
+  test('the proxy label needs a proxy series for an account on the page', () => {
+    const history = parseStoredHistory(PROXY_BODY);
+    expect(hasSeriesFor({}, [{ id: 'codex-a.json' }])).toBe(false);
+    expect(hasSeriesFor(history, [{ id: 'xai-c.json' }])).toBe(false);
+    expect(hasSeriesFor(history, [{ id: 'xai-c.json' }, { id: 'codex-a.json' }])).toBe(true);
   });
 
   test('server-recorded hint exists in six locales', async () => {

@@ -213,6 +213,12 @@ export function mergeHistory(primary: QuotaHistory, secondary: QuotaHistory): Qu
   return merged;
 }
 
+/** Whether any series in the history belongs to one of these accounts. */
+export function hasSeriesFor(history: QuotaHistory, accounts: Pick<QuotaAccount, 'id'>[]): boolean {
+  const ids = new Set(accounts.map((account) => account.id));
+  return Object.keys(history).some((key) => ids.has(key.slice(0, key.lastIndexOf('#'))));
+}
+
 export function loadHistory(): QuotaHistory {
   if (typeof window === 'undefined') return {};
   try {
