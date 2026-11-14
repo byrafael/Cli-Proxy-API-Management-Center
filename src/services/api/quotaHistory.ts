@@ -6,5 +6,9 @@ import { apiClient } from './client';
  * as "no server history" and keep using the browser's own samples.
  */
 export const quotaHistoryApi = {
-  get: () => apiClient.get<unknown>('/quota/history'),
+  /**
+   * Pinned to the connection that starts the request, so a late reply (including a
+   * 401) from a previous proxy never reaches the shared client's session handling.
+   */
+  get: (client = apiClient.captureConnection()) => client.get<unknown>('/quota/history'),
 };

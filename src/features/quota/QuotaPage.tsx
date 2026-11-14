@@ -245,11 +245,12 @@ export function QuotaPage() {
       return;
     }
     const revision = apiClient.getConnectionRevision();
+    const client = apiClient.captureConnection();
     const isCurrent = () =>
       requestId === historyRequestRef.current &&
       revision === apiClient.getConnectionRevision() &&
       sessionGeneration === useQuotaStore.getState().cacheGeneration;
-    quotaHistoryApi.get().then(
+    quotaHistoryApi.get(client).then(
       (body) => {
         if (isCurrent()) {
           setServerHistory({ generation: sessionGeneration, history: parseStoredHistory(body) });
