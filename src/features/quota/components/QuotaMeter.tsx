@@ -1,7 +1,7 @@
 /**
  * 额度水位条（原 QuotaProgressBar 的类型化后继）。
  *
- * dataviz 语法：细轨道退居背景，填充按剩余量三档着色（≥70 绿 / ≥30 琥珀 / <30 红），
+ * dataviz 语法：细轨道退居背景，填充按剩余量三档着色（≥70 绿 / ≥5 琥珀 / <5 红，与额度首页同口径），
  * percent === null 渲染空轨道 —— 未知不着色（Medium 类在 width 0 下不可见，行为与旧版一致）。
  * `index` 写入 `--meter-index`，供全页外衣做逐行入场级差；紧凑外衣不消费该变量。
  */
@@ -10,7 +10,7 @@ import type { CSSProperties } from 'react';
 import type { QuotaClassMap } from '../types';
 
 export const QUOTA_PROGRESS_HIGH_THRESHOLD = 70;
-export const QUOTA_PROGRESS_MEDIUM_THRESHOLD = 30;
+export const QUOTA_PROGRESS_MEDIUM_THRESHOLD = 5;
 
 export interface QuotaMeterProps {
   percent: number | null;

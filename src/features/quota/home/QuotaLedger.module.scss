@@ -275,6 +275,33 @@
   color: var(--text-tertiary);
 }
 
+.poolMeta {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: 18px;
+  row-gap: 4px;
+  min-width: 0;
+}
+
+.groupCount {
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-tertiary);
+}
+
+.poolText {
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+}
+
+.poolValue {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
 .groupDivider {
   width: 3px;
   height: 3px;

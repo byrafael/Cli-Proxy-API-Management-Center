@@ -1726,7 +1726,16 @@
       "resets_tip_no_expiry_other": "{{count}} 次过期时间未知",
       "resets_when_limited": "Claude 只允许在账号被限额时使用手动重置",
       "token_refreshed": "令牌刷新时间",
-      "back_in": "{{time}}后恢复"
+      "back_in": "{{time}}后恢复",
+      "limit_low": "偏低",
+      "limit_critical": "极低",
+      "pool": "<0>{{remaining}}%</0> / 共 {{capacity}}% 额度池",
+      "pool_next_reset": "下次重置 +{{gain}}% · {{time}}",
+      "pool_window_weekly": "各账号周限额之和",
+      "pool_window_session": "各账号 5 小时限额之和",
+      "pool_window_mixed": "各账号周限额之和；没有周限额的账号按 5 小时限额计",
+      "pool_excluded": "未计入（无额度数据）：{{count}}",
+      "pool_reset_tip": "{{time}} · {{accounts}}"
     },
     "forecast": {
       "title": "用量预测",

@@ -6,14 +6,18 @@
  */
 
 import { useMemo, useState, type KeyboardEvent, type ReactNode } from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import { IconChevronDown, IconPencil } from '@/components/ui/icons';
 import {
   PROVIDER_LABEL,
   accountStatus,
   accountTitle,
+  formatResetDay,
   groupAccounts,
+  providerPool,
   recoversAt,
   redactEmailsIn,
+  type AccountGroup,
   type QuotaAccount,
 } from './model';
 import { LimitBar, ProviderMark, StatusDot, type QuotaViewProps } from './shared';
@@ -200,6 +204,67 @@ function LedgerRow({
   );
 }
 
+/** Pooled remaining quota across one provider's accounts, and the next reset that restores some. */
+function ProviderPoolMeta({
+  group,
+  now,
+  redact,
+}: {
+  group: AccountGroup;
+  now: number;
+  redact: boolean;
+}) {
+  const { t, i18n } = useTranslation();
+  const { absolute, countdown } = useQuotaFormat();
+  const pool = useMemo(() => providerPool(group.accounts, now), [group.accounts, now]);
+  const count = group.accounts.length;
+  const countLabel = t(`${NS}.group_accounts`, { count });
+  if (!pool) {
+    return (
+      <span className={styles.poolMeta}>
+        <span className={styles.groupCount} title={countLabel} aria-label={countLabel}>
+          {count}
+        </span>
+      </span>
+    );
+  }
+  const poolTip = [
+    t(`${NS}.pool_window_${pool.window}`, { count: pool.accounts.length }),
+    pool.excluded > 0 ? t(`${NS}.pool_excluded`, { count: pool.excluded }) : null,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+  const reset = pool.nextReset;
+  const resetTip = reset
+    ? t(`${NS}.pool_reset_tip`, {
+        time: `${countdown(reset.at - now)} · ${absolute(reset.at)}`,
+        accounts: reset.accounts.map((account) => accountTitle(account, redact).primary).join(', '),
+      })
+    : undefined;
+  return (
+    <span className={styles.poolMeta}>
+      <span className={styles.groupCount} title={countLabel} aria-label={countLabel}>
+        {count}
+      </span>
+      <span className={styles.poolText} title={poolTip}>
+        <Trans
+          i18nKey={`${NS}.pool`}
+          values={{ remaining: pool.remainingPct, capacity: pool.capacityPct }}
+          components={[<strong key="remaining" className={styles.poolValue} />]}
+        />
+      </span>
+      {reset && (
+        <span className={styles.poolText} title={resetTip}>
+          {t(`${NS}.pool_next_reset`, {
+            gain: reset.gainPct,
+            time: formatResetDay(reset.at, now, i18n.language),
+          })}
+        </span>
+      )}
+    </span>
+  );
+}
+
 export function QuotaLedger({
   accounts,
   now,
@@ -255,19 +320,23 @@ export function QuotaLedger({
                       <span className={styles.groupLabel}>
                         {groupTitle(group, groupBy, redact)}
                       </span>
-                      <span className={styles.groupMeta}>
-                        {t(`${NS}.group_accounts`, { count: group.accounts.length })}
-                        <span className={styles.groupDivider} aria-hidden="true" />
-                        {t(`${NS}.group_ready`, { count: group.readyCount })}
-                        {groupBy === 'email' && (
-                          <>
-                            <span className={styles.groupDivider} aria-hidden="true" />
-                            {Array.from(new Set(group.accounts.map((a) => a.provider)))
-                              .map((provider) => PROVIDER_LABEL[provider])
-                              .join(' · ')}
-                          </>
-                        )}
-                      </span>
+                      {groupBy === 'provider' && group.provider ? (
+                        <ProviderPoolMeta group={group} now={now} redact={redact} />
+                      ) : (
+                        <span className={styles.groupMeta}>
+                          {t(`${NS}.group_accounts`, { count: group.accounts.length })}
+                          <span className={styles.groupDivider} aria-hidden="true" />
+                          {t(`${NS}.group_ready`, { count: group.readyCount })}
+                          {groupBy === 'email' && (
+                            <>
+                              <span className={styles.groupDivider} aria-hidden="true" />
+                              {Array.from(new Set(group.accounts.map((a) => a.provider)))
+                                .map((provider) => PROVIDER_LABEL[provider])
+                                .join(' · ')}
+                            </>
+                          )}
+                        </span>
+                      )}
                     </button>
                   </td>
                 </tr>

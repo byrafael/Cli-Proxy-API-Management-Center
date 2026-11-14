@@ -1,7 +1,7 @@
 /**
  * 额度首页数据模型：纯逻辑，无 React / SCSS，tests/quotaHomeModel.test.ts 直接消费。
  *
- * 所有「剩余」都按百分比表示（与现有 QuotaMeter 同口径：≥70 绿 / ≥30 琥珀 / <30 红）。
+ * 所有「剩余」都按百分比表示（与 QuotaMeter 同口径：≥70 绿 / ≥5 琥珀 / <5 红；<15 另加「低」提示）。
  * 各提供商的原始额度形状在 fromQuota.ts 里归一成这里的 QuotaAccount。
  */
 
@@ -72,8 +72,10 @@ export const GROUP_BY_OPTIONS: readonly GroupBy[] = ['provider', 'email', 'plan'
 export type Tone = 'high' | 'medium' | 'low' | 'none';
 
 export const HIGH_THRESHOLD = 70;
-export const MEDIUM_THRESHOLD = 30;
+/** Below this a limit is exhausted: red, and the account counts as limited. */
 export const LIMITED_THRESHOLD = 5;
+/** Below this a limit shows a Low warning. */
+export const LOW_THRESHOLD = 15;
 
 export const MINUTE = 60_000;
 export const HOUR = 60 * MINUTE;
@@ -86,8 +88,18 @@ export const AUTH_SOON_MS = HOUR;
 export const toneFor = (remainingPct: number | null | undefined): Tone => {
   if (remainingPct === null || remainingPct === undefined) return 'none';
   if (remainingPct >= HIGH_THRESHOLD) return 'high';
-  if (remainingPct >= MEDIUM_THRESHOLD) return 'medium';
+  if (remainingPct >= LIMITED_THRESHOLD) return 'medium';
   return 'low';
+};
+
+export type LowLevel = 'low' | 'critical';
+
+/** Low warning for one limit: under 15% is low, under 5% is critical. */
+export const lowLevel = (remainingPct: number | null | undefined): LowLevel | null => {
+  if (remainingPct === null || remainingPct === undefined) return null;
+  if (remainingPct < LIMITED_THRESHOLD) return 'critical';
+  if (remainingPct < LOW_THRESHOLD) return 'low';
+  return null;
 };
 
 export const clampPct = (value: number): number => Math.min(100, Math.max(0, Math.round(value)));
@@ -367,6 +379,89 @@ export const summarize = (accounts: QuotaAccount[], now: number): QuotaSummary =
     nextRecoveryAt,
     nextRecoveryAccount,
   };
+};
+
+/* ---------- 提供商额度池 ---------- */
+
+/** Resets closer together than this count as one reset, like the forecast's sampling. */
+const SAME_RESET_MS = 30 * MINUTE;
+
+export interface PoolReset {
+  at: number;
+  /** Percent the pool gets back: the used share of every limit resetting then. */
+  gainPct: number;
+  accounts: QuotaAccount[];
+}
+
+export interface ProviderPool {
+  /** Sum of the accounts' remaining percent. */
+  remainingPct: number;
+  /** 100 per account in the pool. */
+  capacityPct: number;
+  /** Accounts in the pool: loaded, enabled, and reporting a primary limit. */
+  accounts: QuotaAccount[];
+  /** Accounts in the group left out of the pool (pending, failed, disabled, or no limit). */
+  excluded: number;
+  /** Which window the pool sums: weekly, the 5-hour session, or both across accounts. */
+  window: 'weekly' | 'session' | 'mixed';
+  /** The soonest future reset that gives anything back. */
+  nextReset: PoolReset | null;
+}
+
+/** The limit an account is judged by: weekly when it has one, else the 5-hour session. */
+export const primaryLimit = (account: QuotaAccount): QuotaLimit | null =>
+  account.weekly ?? account.fiveHour;
+
+/**
+ * Pools one provider's accounts: remaining percent summed over their primary
+ * limits, against 100 per account, and the next reset that restores some of it.
+ */
+export const providerPool = (accounts: QuotaAccount[], now: number): ProviderPool | null => {
+  const members = accounts.filter(
+    (account) =>
+      !account.disabled && !account.error && !account.pending && primaryLimit(account) !== null
+  );
+  if (members.length === 0) return null;
+  const limits = members.map((account) => ({ account, limit: primaryLimit(account)! }));
+  const weekly = members.filter((account) => account.weekly !== null).length;
+  const used = (limit: QuotaLimit) => 100 - clampPct(limit.remainingPct);
+  const upcoming = limits
+    .filter(({ limit }) => limit.resetsAt > now && used(limit) > 0)
+    .sort((a, b) => a.limit.resetsAt - b.limit.resetsAt);
+  let nextReset: PoolReset | null = null;
+  if (upcoming.length > 0) {
+    const at = upcoming[0].limit.resetsAt;
+    const together = upcoming.filter(({ limit }) => limit.resetsAt - at < SAME_RESET_MS);
+    nextReset = {
+      at,
+      gainPct: together.reduce((sum, { limit }) => sum + used(limit), 0),
+      accounts: together.map(({ account }) => account),
+    };
+  }
+  return {
+    remainingPct: limits.reduce((sum, { limit }) => sum + clampPct(limit.remainingPct), 0),
+    capacityPct: members.length * 100,
+    accounts: members,
+    excluded: accounts.length - members.length,
+    window: weekly === members.length ? 'weekly' : weekly === 0 ? 'session' : 'mixed',
+    nextReset,
+  };
+};
+
+const resetDayFormats = new Map<string, Intl.DateTimeFormat>();
+
+/**
+ * "Tue 9:00 AM" for a reset within the coming week, where the weekday is
+ * unambiguous; a full date ("Nov 24, 9:00 AM") beyond that.
+ */
+export const formatResetDay = (ts: number, now: number, locale = 'en-US'): string => {
+  if (ts - now >= 6 * DAY) return formatAbsolute(ts, locale);
+  let format = resetDayFormats.get(locale);
+  if (!format) {
+    format = new Intl.DateTimeFormat(locale, { weekday: 'short', hour: 'numeric', minute: '2-digit' });
+    resetDayFormats.set(locale, format);
+  }
+  return format.format(ts);
 };
 
 export const filterAccounts = (accounts: QuotaAccount[], query: string, redact: boolean): QuotaAccount[] => {

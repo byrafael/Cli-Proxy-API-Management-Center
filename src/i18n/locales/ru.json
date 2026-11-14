@@ -1742,7 +1742,16 @@
       "resets_tip_no_expiry_many": "{{count}} без известного срока",
       "resets_when_limited": "Claude разрешает ручной сброс, только когда аккаунт достиг лимита",
       "token_refreshed": "Обновление токена",
-      "back_in": "вернётся через {{time}}"
+      "back_in": "вернётся через {{time}}",
+      "limit_low": "Мало",
+      "limit_critical": "Очень мало",
+      "pool": "<0>{{remaining}}%</0> из {{capacity}}% пула",
+      "pool_next_reset": "Следующий сброс +{{gain}}% · {{time}}",
+      "pool_window_weekly": "Сумма недельных лимитов всех аккаунтов",
+      "pool_window_session": "Сумма 5-часовых лимитов всех аккаунтов",
+      "pool_window_mixed": "Сумма недельных лимитов аккаунтов, или 5-часового, если недельного нет",
+      "pool_excluded": "Не учтено, нет данных о квоте: {{count}}",
+      "pool_reset_tip": "{{time}} · {{accounts}}"
     },
     "forecast": {
       "title": "Прогноз использования",

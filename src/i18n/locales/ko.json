@@ -1729,7 +1729,16 @@
       "resets_tip_no_expiry_other": "{{count}}회 만료일 알 수 없음",
       "resets_when_limited": "Claude는 계정이 한도에 도달했을 때만 수동 초기화를 허용합니다",
       "token_refreshed": "토큰 갱신",
-      "back_in": "{{time}} 후 복구"
+      "back_in": "{{time}} 후 복구",
+      "limit_low": "부족",
+      "limit_critical": "매우 부족",
+      "pool": "풀 {{capacity}}% 중 <0>{{remaining}}%</0>",
+      "pool_next_reset": "다음 초기화 +{{gain}}% · {{time}}",
+      "pool_window_weekly": "각 계정의 주간 한도 합계",
+      "pool_window_session": "각 계정의 5시간 한도 합계",
+      "pool_window_mixed": "각 계정의 주간 한도 합계, 주간 한도가 없으면 5시간 한도",
+      "pool_excluded": "제외됨(할당량 데이터 없음): {{count}}",
+      "pool_reset_tip": "{{time}} · {{accounts}}"
     },
     "forecast": {
       "title": "사용량 예측",

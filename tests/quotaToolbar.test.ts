@@ -31,6 +31,10 @@ describe('quota toolbar presentation contracts', () => {
     expect(styles).toContain('@media (prefers-reduced-motion: reduce)');
   });
 
+  test('hides emails until the viewer chooses to show them', () => {
+    expect(source).toContain('readQuotaUiState()?.redactEmails ?? true');
+  });
+
   test('exposes the redaction and grouping state to assistive tech', () => {
     expect(source).toContain('aria-pressed={redact}');
     expect(source).toContain('aria-pressed={groupBy === option}');
