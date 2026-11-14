@@ -10,14 +10,21 @@ export interface ResetItem {
 }
 
 /**
- * Codex's summary count is authoritative; credit details can be partial. Missing
- * credits become undated account resets so the count and breakdown still agree.
+ * Codex's summary count is authoritative; credit details can be partial or stale.
+ * Keep the soonest-expiring details up to the summary, then list any missing
+ * credits as undated account resets, so the count and breakdown always agree.
  */
-export const padToSummaryCount = (items: ResetItem[], summary: number): ResetItem[] => {
-  const listed = items.reduce((sum, item) => sum + item.left, 0);
-  if (summary <= listed) return items;
-  return [
-    ...items,
-    { kind: 'account', label: '', model: null, left: summary - listed, expiresAt: null },
-  ];
+export const reconcileToSummaryCount = (items: ResetItem[], summary: number): ResetItem[] => {
+  const sorted = [...items].sort((a, b) => (a.expiresAt ?? Infinity) - (b.expiresAt ?? Infinity));
+  const kept: ResetItem[] = [];
+  let remaining = Math.max(0, summary);
+  for (const item of sorted) {
+    if (remaining === 0) break;
+    const left = Math.min(item.left, remaining);
+    kept.push(left === item.left ? item : { ...item, left });
+    remaining -= left;
+  }
+  if (remaining > 0)
+    kept.push({ kind: 'account', label: '', model: null, left: remaining, expiresAt: null });
+  return kept;
 };

@@ -1,5 +1,5 @@
 import { selectResetGrant } from '../src/features/quota/providers/claude/selectResetGrant';
-import { padToSummaryCount } from '../src/features/quota/home/resetItems';
+import { reconcileToSummaryCount } from '../src/features/quota/home/resetItems';
 
 import { afterEach, describe, expect, test } from 'bun:test';
 import {
@@ -522,14 +522,19 @@ test('only a scope.model block marks a model grant', () => {
   expect(parsed.grants.map((g) => g.kind)).toEqual(['account', 'account', 'account']);
 });
 
-test('Codex summary count wins over partial credit details', () => {
+test('Codex summary count wins over partial or extra credit details', () => {
   const dated = { kind: 'account' as const, label: 'Credit 1', model: null, left: 1, expiresAt: 5 };
-  expect(padToSummaryCount([dated], 3)).toEqual([
+  expect(reconcileToSummaryCount([dated], 3)).toEqual([
     dated,
     { kind: 'account', label: '', model: null, left: 2, expiresAt: null },
   ]);
-  expect(padToSummaryCount([dated], 1)).toEqual([dated]);
-  expect(padToSummaryCount([], 2)).toEqual([
+  expect(reconcileToSummaryCount([dated], 1)).toEqual([dated]);
+  // A lower summary wins: keep the soonest expiries, drop the rest, zero shows nothing.
+  const later = { ...dated, label: 'Credit 2', expiresAt: 9 };
+  expect(reconcileToSummaryCount([later, dated], 1)).toEqual([dated]);
+  expect(reconcileToSummaryCount([dated, later], 0)).toEqual([]);
+  expect(reconcileToSummaryCount([{ ...dated, left: 3 }], 2)).toEqual([{ ...dated, left: 2 }]);
+  expect(reconcileToSummaryCount([], 2)).toEqual([
     { kind: 'account', label: '', model: null, left: 2, expiresAt: null },
   ]);
 });

@@ -11,7 +11,7 @@ import { createPortal } from 'react-dom';
 import { IconRefreshCw, IconTimer, IconZap } from '@/components/ui/icons';
 import type { AnthropicResetGrantKind } from '@/services/api/claudeResetGrants';
 import { parseIsoToMs } from '@/utils/quota';
-import { padToSummaryCount, type ResetItem } from './resetItems';
+import { reconcileToSummaryCount, type ResetItem } from './resetItems';
 import { useClaudeResetGrants } from '../providers/claude/ClaudeResetGrants';
 import type { QuotaFileEntry } from '../logic';
 import type { QuotaCardState } from '../providers';
@@ -264,7 +264,10 @@ export function QuotaResetsCell({
     );
   }
 
-  const groups = groupByKind(entry.type === 'codex' ? padToSummaryCount(items, count) : items, now);
+  const groups = groupByKind(
+    entry.type === 'codex' ? reconcileToSummaryCount(items, count) : items,
+    now
+  );
 
   const retrying = entry.type === 'claude' && claude.buttonLabel === 'retry';
   const busy = entry.type === 'claude' ? claude.busy : resetting;
