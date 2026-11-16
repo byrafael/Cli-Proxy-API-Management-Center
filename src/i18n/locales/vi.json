@@ -1723,7 +1723,21 @@
       "chart_summary": "{{name}}: còn {{value}} trên {{capacity}}. Dùng phím mũi tên để xem giá trị theo thời gian.",
       "chart_role": "biểu đồ",
       "empty_refill": "Đã hết, có lại sau {{refill}}",
-      "empty": "Đã hết"
+      "empty": "Đã hết",
+      "window_label": "Cửa sổ",
+      "window_auto": "Tự động",
+      "window_session": "5 giờ",
+      "window_weekly": "Hàng tuần",
+      "window_fable": "Fable",
+      "window_auto_hint": "Giới hạn hàng tuần của từng tài khoản, hoặc giới hạn 5 giờ nếu không có",
+      "window_pooling": "Gộp cửa sổ {{window}} của từng tài khoản; tài khoản không có sẽ bị bỏ qua.",
+      "range_label": "Khoảng",
+      "range_auto": "Tự động",
+      "range_day": "Ngày",
+      "range_week": "Tuần",
+      "range_month": "Tháng",
+      "range_auto_hint": "Lịch sử đã ghi đến lần đặt lại muộn nhất",
+      "no_pool": "Không có tài khoản nào báo giới hạn hàng tuần hoặc 5 giờ. Hãy chọn một cửa sổ ở trên."
     }
   },
   "plugin_management": {

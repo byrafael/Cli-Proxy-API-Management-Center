@@ -51,6 +51,65 @@
   }
 }
 
+/* ---------- 窗口 / 范围选择 ---------- */
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 18px;
+  margin-left: auto;
+}
+
+.control {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.controlLabel {
+  font-size: 13px;
+  color: var(--text-tertiary);
+}
+
+.segment {
+  display: inline-flex;
+  padding: 3px;
+  border-radius: 11px;
+  background: var(--bg-tertiary);
+
+  button {
+    height: 28px;
+    padding: 0 11px;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--text-secondary);
+    font: inherit;
+    font-size: 13px;
+    font-weight: 550;
+    cursor: pointer;
+    transition:
+      background-color var(--dur-hover, 200ms) ease,
+      color var(--dur-hover, 200ms) ease;
+
+    &[aria-pressed='true'] {
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      box-shadow: var(--shadow);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--primary-color);
+      outline-offset: 1px;
+    }
+  }
+}
+
+.windowNote {
+  flex-basis: 100%;
+}
+
 /* ---------- 卡片 ---------- */
 
 .card {
@@ -407,6 +466,10 @@
   margin: 2px 14px 0 0;
   padding: 0;
   list-style: none;
+}
+
+.daysCompact {
+  height: 10px;
 }
 
 .day {

@@ -11,7 +11,13 @@ import { ProviderMark } from '../home/shared';
 import { useQuotaFormat } from '../home/useQuotaFormat';
 import type { QuotaProviderType } from '../providers/types';
 import { ForecastChart, type ChartBand } from './ForecastChart';
-import type { PoolForecast, QuotaForecast as Forecast } from './model';
+import { FORECAST_WINDOWS, type ForecastWindow, type QuotaWindowId } from './history';
+import {
+  FORECAST_RANGES,
+  type ForecastRange,
+  type PoolForecast,
+  type QuotaForecast as Forecast,
+} from './model';
 import styles from './QuotaForecast.module.scss';
 
 const NS = 'quota_management.forecast';
@@ -161,18 +167,84 @@ function ProviderCard({
   );
 }
 
+/** Picks what the forecast shows: which quota window to pool and how much time to chart. */
+function ViewPicker({
+  view,
+  available,
+  onWindowChange,
+  onRangeChange,
+}: {
+  view: Forecast['view'];
+  /** Windows at least one usable account reports; others are not offered. */
+  available: Record<QuotaWindowId, number>;
+  onWindowChange: (window: ForecastWindow) => void;
+  onRangeChange: (range: ForecastRange) => void;
+}) {
+  const { t } = useQuotaFormat();
+  const windows = FORECAST_WINDOWS.filter((option) => option === 'auto' || available[option] > 0);
+  return (
+    <div className={styles.controls}>
+      {(windows.length > 2 || available.fable > 0) && (
+        <div className={styles.control}>
+          <span className={styles.controlLabel}>{t(`${NS}.window_label`)}</span>
+          <div className={styles.segment} role="group" aria-label={t(`${NS}.window_label`)}>
+            {windows.map((option) => (
+              <button
+                key={option}
+                type="button"
+                aria-pressed={view.window === option}
+                title={option === 'auto' ? t(`${NS}.window_auto_hint`) : undefined}
+                onClick={() => onWindowChange(option)}
+              >
+                {t(`${NS}.window_${option}`)}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+      <div className={styles.control}>
+        <span className={styles.controlLabel}>{t(`${NS}.range_label`)}</span>
+        <div className={styles.segment} role="group" aria-label={t(`${NS}.range_label`)}>
+          {FORECAST_RANGES.map((option) => (
+            <button
+              key={option}
+              type="button"
+              aria-pressed={view.range === option}
+              title={option === 'auto' ? t(`${NS}.range_auto_hint`) : undefined}
+              onClick={() => onRangeChange(option)}
+            >
+              {t(`${NS}.range_${option}`)}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function QuotaForecast({
   forecast,
   theme,
+  available,
+  onWindowChange,
+  onRangeChange,
   serverRecorded = false,
 }: {
   forecast: Forecast;
   theme: ResolvedTheme;
+  /** Accounts reporting each window, for the window picker. */
+  available: Record<QuotaWindowId, number>;
+  onWindowChange: (window: ForecastWindow) => void;
+  onRangeChange: (range: ForecastRange) => void;
   /** The proxy records history on its own, not only while this page is open. */
   serverRecorded?: boolean;
 }) {
   const { t, absolute } = useQuotaFormat();
-  const { total, providers, span } = forecast;
+  const { total, providers, span, view } = forecast;
+  // A login that reports only Fable has no auto pool, but the picker must still be there.
+  const offersWindow = FORECAST_WINDOWS.some(
+    (option) => option !== 'auto' && available[option] > 0
+  );
 
   const bands = useMemo<ChartBand[]>(
     () =>
@@ -199,7 +271,7 @@ export function QuotaForecast({
     [t, total.recorded, total.projected]
   );
 
-  if (providers.length === 0) return null;
+  if (providers.length === 0 && !offersWindow) return null;
 
   return (
     <section className={styles.forecast} aria-labelledby="quota-forecast-title">
@@ -212,63 +284,80 @@ export function QuotaForecast({
               })
             : t(`${NS}.hint_new`)}
         </p>
+        <ViewPicker
+          view={view}
+          available={available}
+          onWindowChange={onWindowChange}
+          onRangeChange={onRangeChange}
+        />
+        {view.window !== 'auto' && (
+          <p className={styles.windowNote}>
+            {t(`${NS}.window_pooling`, { window: t(`${NS}.window_${view.window}`) })}
+          </p>
+        )}
       </header>
 
-      <article className={`${styles.card} ${styles.totalCard}`} aria-labelledby="forecast-all">
-        <div className={styles.totalSide}>
-          <header className={styles.cardHead}>
-            <h3 id="forecast-all">{t(`${NS}.all_providers`)}</h3>
-            <span className={styles.count}>
-              {t('quota_management.home.group_accounts', { count: total.accountCount })}
-            </span>
-          </header>
-          <p className={styles.figure}>
-            <span className={styles.figureValue}>{pct(total.remaining)}</span>
-            <span className={styles.figureOf}>
-              {t(`${NS}.of_capacity`, { value: pct(total.capacity) })}
-            </span>
-          </p>
-          <PaceNote pool={total} />
-          <ul className={styles.providerKey}>
-            {providers.map((pool) => {
-              const provider = pool.id as QuotaProviderType;
-              return (
-                <li key={provider}>
-                  <i style={{ background: seriesColor(provider) }} aria-hidden="true" />
-                  <span>{PROVIDER_LABEL[provider]}</span>
-                  <b>{pct(pool.remaining)}</b>
-                  <span className={styles.providerKeyOf}>/ {pct(pool.capacity)}</span>
-                </li>
-              );
-            })}
-          </ul>
-          <PoolFacts pool={total} now={span.now} showRunway={false} />
-        </div>
-        <div className={styles.totalChart}>
-          <ForecastChart
-            span={span}
-            capacity={total.capacity}
-            bands={bands}
-            total={totalBand}
-            days={total.days}
-            height={250}
-            summary={t(`${NS}.chart_summary`, {
-              name: t(`${NS}.all_providers`),
-              value: pct(total.remaining),
-              capacity: pct(total.capacity),
-            })}
-          />
-          <footer className={styles.cardFoot}>
-            <Legend withTotal />
-          </footer>
-        </div>
-      </article>
+      {providers.length === 0 ? (
+        <p className={styles.windowNote}>{t(`${NS}.no_pool`)}</p>
+      ) : (
+        <>
+          <article className={`${styles.card} ${styles.totalCard}`} aria-labelledby="forecast-all">
+            <div className={styles.totalSide}>
+              <header className={styles.cardHead}>
+                <h3 id="forecast-all">{t(`${NS}.all_providers`)}</h3>
+                <span className={styles.count}>
+                  {t('quota_management.home.group_accounts', { count: total.accountCount })}
+                </span>
+              </header>
+              <p className={styles.figure}>
+                <span className={styles.figureValue}>{pct(total.remaining)}</span>
+                <span className={styles.figureOf}>
+                  {t(`${NS}.of_capacity`, { value: pct(total.capacity) })}
+                </span>
+              </p>
+              <PaceNote pool={total} />
+              <ul className={styles.providerKey}>
+                {providers.map((pool) => {
+                  const provider = pool.id as QuotaProviderType;
+                  return (
+                    <li key={provider}>
+                      <i style={{ background: seriesColor(provider) }} aria-hidden="true" />
+                      <span>{PROVIDER_LABEL[provider]}</span>
+                      <b>{pct(pool.remaining)}</b>
+                      <span className={styles.providerKeyOf}>/ {pct(pool.capacity)}</span>
+                    </li>
+                  );
+                })}
+              </ul>
+              <PoolFacts pool={total} now={span.now} showRunway={false} />
+            </div>
+            <div className={styles.totalChart}>
+              <ForecastChart
+                span={span}
+                capacity={total.capacity}
+                bands={bands}
+                total={totalBand}
+                days={total.days}
+                height={250}
+                summary={t(`${NS}.chart_summary`, {
+                  name: t(`${NS}.all_providers`),
+                  value: pct(total.remaining),
+                  capacity: pct(total.capacity),
+                })}
+              />
+              <footer className={styles.cardFoot}>
+                <Legend withTotal />
+              </footer>
+            </div>
+          </article>
 
-      <div className={styles.grid}>
-        {providers.map((pool) => (
-          <ProviderCard key={pool.id} pool={pool} forecast={forecast} theme={theme} />
-        ))}
-      </div>
+          <div className={styles.grid}>
+            {providers.map((pool) => (
+              <ProviderCard key={pool.id} pool={pool} forecast={forecast} theme={theme} />
+            ))}
+          </div>
+        </>
+      )}
     </section>
   );
 }

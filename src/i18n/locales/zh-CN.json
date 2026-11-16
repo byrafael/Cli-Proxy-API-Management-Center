@@ -1764,7 +1764,21 @@
       "chart_summary": "{{name}}：剩余 {{value}}，共 {{capacity}}。用方向键查看各时刻的数值。",
       "chart_role": "图表",
       "empty_refill": "已用完，{{refill}}后恢复",
-      "empty": "已用完"
+      "empty": "已用完",
+      "window_label": "窗口",
+      "window_auto": "自动",
+      "window_session": "5 小时",
+      "window_weekly": "每周",
+      "window_fable": "Fable",
+      "window_auto_hint": "每个账号的每周限额；没有每周限额时用 5 小时限额",
+      "window_pooling": "按各账号的“{{window}}”窗口汇总，没有该窗口的账号不计入。",
+      "range_label": "范围",
+      "range_auto": "自动",
+      "range_day": "天",
+      "range_week": "周",
+      "range_month": "月",
+      "range_auto_hint": "已记录的历史，直到最近一次重置",
+      "no_pool": "没有账号报告每周或 5 小时限额。请在上方选择一个窗口。"
     }
   },
   "plugin_management": {

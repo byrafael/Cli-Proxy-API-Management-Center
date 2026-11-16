@@ -33,13 +33,15 @@ import {
   latestSampleAt,
   loadHistory,
   hasSeriesFor,
+  windowCounts,
+  type ForecastWindow,
   mergeHistory,
   parseStoredHistory,
   recordSamples,
   saveHistory,
   type QuotaHistory,
 } from './forecast/history';
-import { buildForecast } from './forecast/model';
+import { buildForecast, type ForecastRange } from './forecast/model';
 import { QuotaForecast } from './forecast/QuotaForecast';
 import { buildQuotaAccount } from './home/fromQuota';
 import {
@@ -88,6 +90,12 @@ export function QuotaPage() {
   const [error, setError] = useState('');
   const [groupBy, setGroupBy] = useState<GroupBy>(() => readQuotaUiState()?.groupBy ?? 'provider');
   const [redact, setRedact] = useState<boolean>(() => readQuotaUiState()?.redactEmails ?? true);
+  const [forecastWindow, setForecastWindow] = useState<ForecastWindow>(
+    () => readQuotaUiState()?.forecastWindow ?? 'auto'
+  );
+  const [forecastRange, setForecastRange] = useState<ForecastRange>(
+    () => readQuotaUiState()?.forecastRange ?? 'auto'
+  );
   const [attentionOnly, setAttentionOnly] = useState(false);
   const [search, setSearch] = useState('');
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -272,10 +280,22 @@ export function QuotaPage() {
     () => (currentServerHistory ? mergeHistory(currentServerHistory, history) : history),
     [currentServerHistory, history]
   );
-  // Say the proxy recorded the chart only when its series belong to accounts shown here.
+  // A remembered window the accounts no longer report (or have not loaded yet) shows
+  // as auto, and comes back once an account reports it again.
+  const windowAvailable = useMemo(() => windowCounts(allAccounts), [allAccounts]);
+  const effectiveWindow: ForecastWindow =
+    forecastWindow !== 'auto' && windowAvailable[forecastWindow] === 0 ? 'auto' : forecastWindow;
+  // Say the proxy recorded the chart only when it holds the shown window for accounts shown here.
   const serverRecorded = useMemo(
-    () => (currentServerHistory ? hasSeriesFor(currentServerHistory, allAccounts) : false),
-    [currentServerHistory, allAccounts]
+    () =>
+      currentServerHistory
+        ? hasSeriesFor(
+            currentServerHistory,
+            allAccounts,
+            effectiveWindow === 'auto' ? undefined : effectiveWindow
+          )
+        : false,
+    [currentServerHistory, allAccounts, effectiveWindow]
   );
 
   // The minute clock can trail the newest sample; the forecast must include it.
@@ -284,9 +304,21 @@ export function QuotaPage() {
     [now, chartHistory]
   );
   const forecast = useMemo(
-    () => buildForecast(allAccounts, chartHistory, forecastNow),
-    [allAccounts, chartHistory, forecastNow]
+    () =>
+      buildForecast(allAccounts, chartHistory, forecastNow, {
+        window: effectiveWindow,
+        range: forecastRange,
+      }),
+    [allAccounts, chartHistory, forecastNow, effectiveWindow, forecastRange]
   );
+  const handleForecastWindow = useCallback((next: ForecastWindow) => {
+    setForecastWindow(next);
+    writeQuotaUiState({ forecastWindow: next });
+  }, []);
+  const handleForecastRange = useCallback((next: ForecastRange) => {
+    setForecastRange(next);
+    writeQuotaUiState({ forecastRange: next });
+  }, []);
 
   // 剪枝：文件列表落定后，各 provider 缓存只保留仍存在的凭证
   useEffect(() => {
@@ -547,7 +579,14 @@ export function QuotaPage() {
       />
 
       {!loading && entries.length > 0 && (
-        <QuotaForecast forecast={forecast} theme={resolvedTheme} serverRecorded={serverRecorded} />
+        <QuotaForecast
+          forecast={forecast}
+          theme={resolvedTheme}
+          available={windowAvailable}
+          onWindowChange={handleForecastWindow}
+          onRangeChange={handleForecastRange}
+          serverRecorded={serverRecorded}
+        />
       )}
 
       <section className={styles.workbench}>
