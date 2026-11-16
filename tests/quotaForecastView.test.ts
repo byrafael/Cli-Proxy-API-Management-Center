@@ -9,6 +9,7 @@ import {
   recordSamples,
   saveHistory,
   serializeHistory,
+  thinHistory,
   trackedAccounts,
   trimHistory,
   windowCounts,
@@ -410,14 +411,45 @@ describe('forecast history persistence', () => {
     expect(parseHistory(storage.writes[0])['a#session'].points).toHaveLength(30 * 24);
   });
 
-  test('keeps the recent week instead of nothing when storage is full', () => {
+  test('thins old detail but keeps the whole span when storage is full', () => {
     const full = serializeHistory(series(30)).length;
-    const storage = store(Math.floor(full / 2));
+    const storage = store(Math.floor(full * 0.6));
+    saveHistory(series(30), storage);
+    expect(storage.writes).toHaveLength(1);
+    const kept = parseHistory(storage.writes[0])['a#session'].points;
+    expect(kept.length).toBeLessThan(30 * 24);
+    // Month coverage survives: first and newest samples are still there.
+    expect(kept[0].t).toBe(Math.round((NOW - 30 * 24 * HOUR) / 60_000) * 60_000);
+    expect(kept[kept.length - 1].t).toBe(NOW - HOUR);
+  });
+
+  test('thinning keeps the first and last samples and both sides of a reset', () => {
+    const points = Array.from({ length: 20 }, (_, index) => ({
+      t: NOW + index * HOUR,
+      v: 100 - index,
+      // The window resets between samples 10 and 11.
+      r: index <= 10 ? NOW + 5 * HOUR : NOW + 10 * HOUR,
+    }));
+    const thinned = thinHistory({ 'a#session': { provider: 'claude', periodHours: 5, points } }, 4);
+    const times = thinned['a#session'].points.map((point) => (point.t - NOW) / HOUR);
+    expect(times[0]).toBe(0);
+    expect(times[times.length - 1]).toBe(19);
+    expect(times).toContain(10);
+    expect(times).toContain(11);
+    expect(times).toEqual([0, 4, 8, 10, 11, 12, 16, 19]);
+    expect(thinHistory({ x: thinned['a#session'] as never }, 1)).toEqual({
+      x: thinned['a#session'],
+    });
+  });
+
+  test('keeps only the recent week when even thinning does not fit', () => {
+    const full = serializeHistory(series(30)).length;
+    const storage = store(Math.floor(full / 20));
     saveHistory(series(30), storage);
     expect(storage.writes).toHaveLength(1);
     const kept = parseHistory(storage.writes[0])['a#session'].points;
     expect(kept.length).toBeGreaterThan(0);
-    expect(kept.length).toBeLessThan(30 * 24);
+    expect(kept[0].t).toBeGreaterThanOrEqual(NOW - HOUR - 7 * DAY);
   });
 
   test('gives up quietly when even a short history does not fit, or storage is missing', () => {

@@ -37,6 +37,8 @@ export type QuotaHistory = Record<string, HistorySeries>;
 export const HISTORY_RETENTION_MS = 30 * DAY;
 /** An unchanged value is still recorded this often, so coverage stays measurable. */
 const HEARTBEAT_MS = HOUR;
+/** A reset instant that moved later than this marks a new window, as in the forecast model. */
+const ROLLED_MS = 30 * MINUTE;
 
 const STORAGE_KEY = 'quotaForecast.history.v1';
 const PROVIDERS = new Set<string>(QUOTA_TAB_ORDER);
@@ -268,9 +270,6 @@ export function loadHistory(): QuotaHistory {
   }
 }
 
-/** Most recent samples first kept when storage is full: a week, then two days. */
-const SHRINK_RETENTION_MS = [7 * DAY, 2 * DAY];
-
 /** `history` without samples older than `keepMs` before its newest sample. */
 export function trimHistory(history: QuotaHistory, keepMs: number): QuotaHistory {
   const newest = latestSampleAt(history);
@@ -283,9 +282,44 @@ export function trimHistory(history: QuotaHistory, keepMs: number): QuotaHistory
 }
 
 /**
+ * `history` with only every `step`-th sample of each series. A series keeps its first
+ * and last samples and both sides of every window reset, so coverage, the latest
+ * reading and the use that resets split up all survive; only the detail between
+ * readings thins out, and lines draw straight across the gaps.
+ */
+export function thinHistory(history: QuotaHistory, step: number): QuotaHistory {
+  if (step <= 1) return history;
+  const thinned: QuotaHistory = {};
+  for (const [key, series] of Object.entries(history)) {
+    const { points } = series;
+    const kept = points.filter((point, index) => {
+      if (index === 0 || index === points.length - 1 || index % step === 0) return true;
+      const before = points[index - 1];
+      const after = points[index + 1];
+      return point.r - before.r > ROLLED_MS || after.r - point.r > ROLLED_MS;
+    });
+    thinned[key] = { ...series, points: kept };
+  }
+  return thinned;
+}
+
+/**
+ * Smaller versions of the history for a full store, best first: the whole span at
+ * ever coarser detail, then only the recent days as a last resort.
+ */
+const SHRINKS: ((history: QuotaHistory) => QuotaHistory)[] = [
+  (history) => history,
+  (history) => thinHistory(history, 2),
+  (history) => thinHistory(history, 4),
+  (history) => thinHistory(history, 8),
+  (history) => trimHistory(thinHistory(history, 8), 7 * DAY),
+  (history) => trimHistory(thinHistory(history, 8), 2 * DAY),
+];
+
+/**
  * Persist the history. Recording every window multiplies what a browser holds, so
- * when storage refuses it, keep the recent part instead of nothing at all; the
- * proxy's own history and what the page holds in memory still cover the rest.
+ * when storage refuses it, keep the whole span at coarser detail rather than losing
+ * the older days; the proxy's own history and the page's memory still hold the rest.
  */
 export function saveHistory(
   history: QuotaHistory,
@@ -300,12 +334,9 @@ export function saveHistory(
       })()
 ): void {
   if (!storage) return;
-  for (const keepMs of [Infinity, ...SHRINK_RETENTION_MS]) {
+  for (const shrink of SHRINKS) {
     try {
-      storage.setItem(
-        STORAGE_KEY,
-        serializeHistory(keepMs === Infinity ? history : trimHistory(history, keepMs))
-      );
+      storage.setItem(STORAGE_KEY, serializeHistory(shrink(history)));
       return;
     } catch {
       // Storage full or blocked: try a shorter history.
