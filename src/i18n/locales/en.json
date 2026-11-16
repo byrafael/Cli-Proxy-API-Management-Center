@@ -1767,7 +1767,16 @@
       "chart_summary": "{{name}}: {{value}} left of {{capacity}}. Use the arrow keys to read values over time.",
       "chart_role": "chart",
       "empty_refill": "Empty, refills in {{refill}}",
-      "empty": "Empty"
+      "empty": "Empty",
+      "horizon_label": "View",
+      "horizon_day": "Day",
+      "horizon_week": "Week",
+      "horizon_month": "Month",
+      "window_label": "Quota window",
+      "window_auto": "Automatic",
+      "window_five_hour": "5-hour",
+      "window_weekly": "Weekly",
+      "window_fable": "Fable"
     }
   },
   "plugin_management": {

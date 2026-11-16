@@ -11,7 +11,12 @@ import { ProviderMark } from '../home/shared';
 import { useQuotaFormat } from '../home/useQuotaFormat';
 import type { QuotaProviderType } from '../providers/types';
 import { ForecastChart, type ChartBand } from './ForecastChart';
-import type { PoolForecast, QuotaForecast as Forecast } from './model';
+import type {
+  ForecastHorizon,
+  ForecastWindow,
+  PoolForecast,
+  QuotaForecast as Forecast,
+} from './model';
 import styles from './QuotaForecast.module.scss';
 
 const NS = 'quota_management.forecast';
@@ -165,11 +170,19 @@ export function QuotaForecast({
   forecast,
   theme,
   serverRecorded = false,
+  horizon,
+  window,
+  onHorizonChange,
+  onWindowChange,
 }: {
   forecast: Forecast;
   theme: ResolvedTheme;
   /** The proxy records history on its own, not only while this page is open. */
   serverRecorded?: boolean;
+  horizon: ForecastHorizon;
+  window: ForecastWindow;
+  onHorizonChange: (value: ForecastHorizon) => void;
+  onWindowChange: (value: ForecastWindow) => void;
 }) {
   const { t, absolute } = useQuotaFormat();
   const { total, providers, span } = forecast;
@@ -205,6 +218,25 @@ export function QuotaForecast({
     <section className={styles.forecast} aria-labelledby="quota-forecast-title">
       <header className={styles.head}>
         <h2 id="quota-forecast-title">{t(`${NS}.title`)}</h2>
+        <div className={styles.controls}>
+          <label>
+            <span>{t(`${NS}.horizon_label`)}</span>
+            <select value={horizon} onChange={(event) => onHorizonChange(event.target.value as ForecastHorizon)}>
+              <option value="day">{t(`${NS}.horizon_day`)}</option>
+              <option value="week">{t(`${NS}.horizon_week`)}</option>
+              <option value="month">{t(`${NS}.horizon_month`)}</option>
+            </select>
+          </label>
+          <label>
+            <span>{t(`${NS}.window_label`)}</span>
+            <select value={window} onChange={(event) => onWindowChange(event.target.value as ForecastWindow)}>
+              <option value="auto">{t(`${NS}.window_auto`)}</option>
+              <option value="fiveHour">{t(`${NS}.window_five_hour`)}</option>
+              <option value="weekly">{t(`${NS}.window_weekly`)}</option>
+              <option value="fable">{t(`${NS}.window_fable`)}</option>
+            </select>
+          </label>
+        </div>
         <p>
           {total.recordingSince !== null
             ? t(`${NS}.${serverRecorded ? 'hint_since_server' : 'hint_since'}`, {

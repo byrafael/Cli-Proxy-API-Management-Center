@@ -14,7 +14,7 @@
 import { QUOTA_TAB_ORDER } from '../constants';
 import { DAY, HOUR, MINUTE, type QuotaAccount } from '../home/model';
 import type { QuotaProviderType } from '../providers/types';
-import { trackedAccounts, type HistorySeries, type QuotaHistory } from './history';
+import { type HistorySeries, type QuotaHistory } from './history';
 
 export interface ChartPoint {
   t: number;
@@ -73,15 +73,20 @@ export interface ForecastSpan {
   to: number;
 }
 
+export type ForecastHorizon = 'day' | 'week' | 'month';
+export type ForecastWindow = 'auto' | 'fiveHour' | 'weekly' | 'fable';
+
 export interface QuotaForecast {
   span: ForecastSpan;
   total: PoolForecast;
   providers: PoolForecast[];
 }
 
-const PAST_SPAN_MS = 4 * DAY;
-const MIN_PAST_SPAN_MS = 12 * HOUR;
-const MAX_FUTURE_MS = 7 * DAY;
+const HORIZON_CONFIG: Record<ForecastHorizon, { pastMs: number; minPastMs: number; futureMs: number }> = {
+  day: { pastMs: 12 * HOUR, minPastMs: 3 * HOUR, futureMs: DAY },
+  week: { pastMs: 4 * DAY, minPastMs: 12 * HOUR, futureMs: 7 * DAY },
+  month: { pastMs: 7 * DAY, minPastMs: DAY, futureMs: 30 * DAY },
+};
 /** The 24 hours behind `now` set the pace once the recording covers this much of them. */
 const HISTORY_PACE_MIN_COVERAGE_MS = 12 * HOUR;
 const SIM_STEP_MS = 15 * MINUTE;
@@ -372,8 +377,19 @@ export function dayBounds(from: number, to: number): { start: number; end: numbe
   return out;
 }
 
-export function forecastSpan(accounts: QuotaAccount[], history: QuotaHistory, now: number) {
-  const tracked = trackedAccounts(accounts);
+export function forecastSpan(
+  accounts: QuotaAccount[],
+  history: QuotaHistory,
+  now: number,
+  horizon: ForecastHorizon = 'week',
+  window: ForecastWindow = 'auto'
+) {
+  const config = HORIZON_CONFIG[horizon];
+  const tracked = accounts.flatMap((account) => {
+    if (account.pending || account.error || account.disabled) return [];
+    const limit = limitForWindow(account, window);
+    return limit ? [{ account, limit, key: `${account.id}#${historyWindowFor(account, window)}` }] : [];
+  });
   const keys = new Set(tracked.map((entry) => entry.key));
   let firstSample = Infinity;
   Object.entries(history).forEach(([key, series]) => {
@@ -381,22 +397,39 @@ export function forecastSpan(accounts: QuotaAccount[], history: QuotaHistory, no
       firstSample = Math.min(firstSample, series.points[0].t);
     }
   });
-  const from = clamp(firstSample, now - PAST_SPAN_MS, now - MIN_PAST_SPAN_MS);
-  // Cover the day after tomorrow and reach the latest window end, up to a week out.
-  const minTo = addLocalDays(startOfLocalDay(now), 3);
+  const from = clamp(firstSample, now - config.pastMs, now - config.minPastMs);
   const latestReset = Math.max(now, ...tracked.map((entry) => entry.limit.resetsAt));
-  const to = Math.min(Math.max(latestReset, minTo), now + MAX_FUTURE_MS);
+  const horizonEnd = horizon === 'day' ? now + config.futureMs : addLocalDays(startOfLocalDay(now), horizon === 'month' ? 31 : 8);
+  const to = Math.min(Math.max(latestReset, horizonEnd), now + config.futureMs);
   return { from, now, to };
 }
+
+const limitForWindow = (account: QuotaAccount, window: ForecastWindow) => {
+  if (window === 'fiveHour') return account.fiveHour;
+  if (window === 'weekly') return account.weekly;
+  if (window === 'fable') return account.fable;
+  return account.weekly ?? account.fiveHour;
+};
+
+const historyWindowFor = (account: QuotaAccount, window: ForecastWindow) =>
+  window === 'fiveHour' || (window === 'auto' && !account.weekly) ? 'session' : 'weekly';
 
 function poolForecast(
   id: PoolForecast['id'],
   accounts: QuotaAccount[],
   history: QuotaHistory,
-  span: ForecastSpan
+  span: ForecastSpan,
+  window: ForecastWindow
 ): PoolForecast {
   const { from, now, to } = span;
-  const tracked = trackedAccounts(accounts);
+  const tracked = accounts.flatMap((account) => {
+    if (account.pending || account.error || account.disabled) return [];
+    const limit = limitForWindow(account, window);
+    if (!limit) return [];
+    const periodHours = limit.periodHours ?? (window === 'fiveHour' ? 5 : window === 'fable' ? 168 : 168);
+    const historyWindow = historyWindowFor(account, window);
+    return [{ account, limit, periodHours, key: `${account.id}#${historyWindow}` }];
+  });
   const liveKeys = new Set(tracked.map((entry) => entry.key));
 
   // Only the accounts in today's pool. A removed, renamed or disabled account's
@@ -577,13 +610,18 @@ function totalForecast(providers: PoolForecast[], span: ForecastSpan): PoolForec
 export function buildForecast(
   accounts: QuotaAccount[],
   history: QuotaHistory,
-  now: number
+  now: number,
+  horizon: ForecastHorizon = 'week',
+  window: ForecastWindow = 'auto'
 ): QuotaForecast {
-  const span = forecastSpan(accounts, history, now);
+  const span = forecastSpan(accounts, history, now, horizon, window);
   const providers = QUOTA_TAB_ORDER.map((provider) =>
     accounts.filter((account) => account.provider === provider)
   )
-    .filter((group) => trackedAccounts(group).length > 0)
-    .map((group) => poolForecast(group[0].provider, group, history, span));
+    .filter((group) => group.some((account) => {
+      if (account.pending || account.error || account.disabled) return false;
+      return limitForWindow(account, window) !== null;
+    }))
+    .map((group) => poolForecast(group[0].provider, group, history, span, window));
   return { span, total: totalForecast(providers, span), providers };
 }

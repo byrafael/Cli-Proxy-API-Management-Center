@@ -1723,7 +1723,16 @@
       "chart_summary": "{{name}}: còn {{value}} trên {{capacity}}. Dùng phím mũi tên để xem giá trị theo thời gian.",
       "chart_role": "biểu đồ",
       "empty_refill": "Đã hết, có lại sau {{refill}}",
-      "empty": "Đã hết"
+      "empty": "Đã hết",
+      "horizon_label": "Khoảng xem",
+      "horizon_day": "Ngày",
+      "horizon_week": "Tuần",
+      "horizon_month": "Tháng",
+      "window_label": "Cửa sổ quota",
+      "window_auto": "Tự động",
+      "window_five_hour": "5 giờ",
+      "window_weekly": "Hàng tuần",
+      "window_fable": "Fable"
     }
   },
   "plugin_management": {

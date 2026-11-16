@@ -188,6 +188,23 @@ describe('forecast', () => {
     expect(forecast.span.to).toBeGreaterThanOrEqual(startOfLocalDay(NOW) + 3 * DAY);
   });
 
+  test('can forecast a selected quota window and horizon', () => {
+    const accounts = [
+      account('fable', {
+        weekly: limit(80, NOW + 5 * DAY, 168),
+        fiveHour: limit(40, NOW + 2 * HOUR, 5),
+        fable: limit(25, NOW + 3 * DAY, 168),
+      }),
+    ];
+    const forecast = buildForecast(accounts, {}, NOW, 'day', 'fable');
+    expect(forecast.providers).toHaveLength(1);
+    expect(forecast.providers[0].remaining).toBe(25);
+    expect(forecast.span.to).toBe(NOW + DAY);
+
+    const short = buildForecast(accounts, {}, NOW, 'day', 'fiveHour');
+    expect(short.providers[0].remaining).toBe(40);
+  });
+
   test('switches to the recorded pace once the last day is covered', () => {
     const history: QuotaHistory = {
       'a#weekly': {

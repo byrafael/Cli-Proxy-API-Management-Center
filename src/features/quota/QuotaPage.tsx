@@ -40,6 +40,7 @@ import {
   type QuotaHistory,
 } from './forecast/history';
 import { buildForecast } from './forecast/model';
+import type { ForecastHorizon, ForecastWindow } from './forecast/model';
 import { QuotaForecast } from './forecast/QuotaForecast';
 import { buildQuotaAccount } from './home/fromQuota';
 import {
@@ -223,6 +224,8 @@ export function QuotaPage() {
   /* ---------- 用量记录与预测 ---------- */
 
   const [history, setHistory] = useState<QuotaHistory>(loadHistory);
+  const [forecastHorizon, setForecastHorizon] = useState<ForecastHorizon>('week');
+  const [forecastWindow, setForecastWindow] = useState<ForecastWindow>('auto');
   useEffect(() => {
     setHistory((prev) => {
       const next = recordSamples(prev, allAccounts, Date.now());
@@ -284,8 +287,8 @@ export function QuotaPage() {
     [now, chartHistory]
   );
   const forecast = useMemo(
-    () => buildForecast(allAccounts, chartHistory, forecastNow),
-    [allAccounts, chartHistory, forecastNow]
+    () => buildForecast(allAccounts, chartHistory, forecastNow, forecastHorizon, forecastWindow),
+    [allAccounts, chartHistory, forecastHorizon, forecastWindow, forecastNow]
   );
 
   // 剪枝：文件列表落定后，各 provider 缓存只保留仍存在的凭证
@@ -547,7 +550,15 @@ export function QuotaPage() {
       />
 
       {!loading && entries.length > 0 && (
-        <QuotaForecast forecast={forecast} theme={resolvedTheme} serverRecorded={serverRecorded} />
+        <QuotaForecast
+          forecast={forecast}
+          theme={resolvedTheme}
+          serverRecorded={serverRecorded}
+          horizon={forecastHorizon}
+          window={forecastWindow}
+          onHorizonChange={setForecastHorizon}
+          onWindowChange={setForecastWindow}
+        />
       )}
 
       <section className={styles.workbench}>
