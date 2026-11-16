@@ -59,10 +59,13 @@ const MARGIN = { top: 30, right: 14, bottom: 8, left: 50 };
 const LABEL_MIN_GAP = 46;
 /** Refills smaller than this (a five-hour window topping up) stay unlabelled. */
 const LABEL_MIN_GAIN = 5;
-/** Day columns narrower than these drop their detail line, figure, or name. */
+/**
+ * Day columns narrower than these drop their detail line, figure, or name. The
+ * name floor fits a two-digit date, which is all a month view has room for.
+ */
 const DAY_FULL_PX = 68;
 const DAY_FIGURE_PX = 40;
-const DAY_NAME_PX = 20;
+const DAY_NAME_PX = 16;
 
 const pct = (value: number) => `${Math.round(value).toLocaleString()}%`;
 
@@ -422,10 +425,17 @@ function DayStrip({
     [i18n.language]
   );
 
+  // Columns too narrow for even a date leave the strip a bare rule (their detail stays in
+  // each column's tooltip), so a month in a half-width card is not a blank band.
+  const compact = cells.every((cell) => cell.x1 - cell.x0 < DAY_NAME_PX);
+
   // Every column sits exactly under its day on the time axis. A narrow column
   // sheds its detail, then its figure, then its name, but never its position.
   return (
-    <ol className={styles.days} style={{ marginLeft: plotLeft }}>
+    <ol
+      className={`${styles.days} ${compact ? styles.daysCompact : ''}`}
+      style={{ marginLeft: plotLeft }}
+    >
       {cells.map((cell) => {
         const usage = cell.usage;
         const widthPx = cell.x1 - cell.x0;

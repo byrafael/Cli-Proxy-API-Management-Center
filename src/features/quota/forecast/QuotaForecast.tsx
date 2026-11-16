@@ -11,7 +11,13 @@ import { ProviderMark } from '../home/shared';
 import { useQuotaFormat } from '../home/useQuotaFormat';
 import type { QuotaProviderType } from '../providers/types';
 import { ForecastChart, type ChartBand } from './ForecastChart';
-import type { PoolForecast, QuotaForecast as Forecast } from './model';
+import { FORECAST_WINDOWS, type ForecastWindow, type QuotaWindowId } from './history';
+import {
+  FORECAST_RANGES,
+  type ForecastRange,
+  type PoolForecast,
+  type QuotaForecast as Forecast,
+} from './model';
 import styles from './QuotaForecast.module.scss';
 
 const NS = 'quota_management.forecast';
@@ -161,18 +167,80 @@ function ProviderCard({
   );
 }
 
+/** Picks what the forecast shows: which quota window to pool and how much time to chart. */
+function ViewPicker({
+  view,
+  available,
+  onWindowChange,
+  onRangeChange,
+}: {
+  view: Forecast['view'];
+  /** Windows at least one usable account reports; others are not offered. */
+  available: Record<QuotaWindowId, number>;
+  onWindowChange: (window: ForecastWindow) => void;
+  onRangeChange: (range: ForecastRange) => void;
+}) {
+  const { t } = useQuotaFormat();
+  const windows = FORECAST_WINDOWS.filter((option) => option === 'auto' || available[option] > 0);
+  return (
+    <div className={styles.controls}>
+      {windows.length > 2 && (
+        <div className={styles.control}>
+          <span className={styles.controlLabel}>{t(`${NS}.window_label`)}</span>
+          <div className={styles.segment} role="group" aria-label={t(`${NS}.window_label`)}>
+            {windows.map((option) => (
+              <button
+                key={option}
+                type="button"
+                aria-pressed={view.window === option}
+                title={option === 'auto' ? t(`${NS}.window_auto_hint`) : undefined}
+                onClick={() => onWindowChange(option)}
+              >
+                {t(`${NS}.window_${option}`)}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+      <div className={styles.control}>
+        <span className={styles.controlLabel}>{t(`${NS}.range_label`)}</span>
+        <div className={styles.segment} role="group" aria-label={t(`${NS}.range_label`)}>
+          {FORECAST_RANGES.map((option) => (
+            <button
+              key={option}
+              type="button"
+              aria-pressed={view.range === option}
+              title={option === 'auto' ? t(`${NS}.range_auto_hint`) : undefined}
+              onClick={() => onRangeChange(option)}
+            >
+              {t(`${NS}.range_${option}`)}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function QuotaForecast({
   forecast,
   theme,
+  available,
+  onWindowChange,
+  onRangeChange,
   serverRecorded = false,
 }: {
   forecast: Forecast;
   theme: ResolvedTheme;
+  /** Accounts reporting each window, for the window picker. */
+  available: Record<QuotaWindowId, number>;
+  onWindowChange: (window: ForecastWindow) => void;
+  onRangeChange: (range: ForecastRange) => void;
   /** The proxy records history on its own, not only while this page is open. */
   serverRecorded?: boolean;
 }) {
   const { t, absolute } = useQuotaFormat();
-  const { total, providers, span } = forecast;
+  const { total, providers, span, view } = forecast;
 
   const bands = useMemo<ChartBand[]>(
     () =>
@@ -212,6 +280,17 @@ export function QuotaForecast({
               })
             : t(`${NS}.hint_new`)}
         </p>
+        <ViewPicker
+          view={view}
+          available={available}
+          onWindowChange={onWindowChange}
+          onRangeChange={onRangeChange}
+        />
+        {view.window !== 'auto' && (
+          <p className={styles.windowNote}>
+            {t(`${NS}.window_pooling`, { window: t(`${NS}.window_${view.window}`) })}
+          </p>
+        )}
       </header>
 
       <article className={`${styles.card} ${styles.totalCard}`} aria-labelledby="forecast-all">

@@ -14,7 +14,12 @@
 import { QUOTA_TAB_ORDER } from '../constants';
 import { DAY, HOUR, MINUTE, type QuotaAccount } from '../home/model';
 import type { QuotaProviderType } from '../providers/types';
-import { trackedAccounts, type HistorySeries, type QuotaHistory } from './history';
+import {
+  trackedAccounts,
+  type ForecastWindow,
+  type HistorySeries,
+  type QuotaHistory,
+} from './history';
 
 export interface ChartPoint {
   t: number;
@@ -71,9 +76,32 @@ export interface ForecastSpan {
   from: number;
   now: number;
   to: number;
+  /**
+   * How far the projection runs. It reaches at least `to`, and past it when the view
+   * is shorter than the horizon the run-out and refill readouts need, so a one-day
+   * view never claims the pool "won't run out" when it does on day three.
+   */
+  horizon: number;
 }
 
+/** How much time the chart shows around now. */
+export type ForecastRange = 'auto' | 'day' | 'week' | 'month';
+
+export const FORECAST_RANGES: readonly ForecastRange[] = ['auto', 'day', 'week', 'month'];
+
+export const isForecastRange = (value: unknown): value is ForecastRange =>
+  typeof value === 'string' && (FORECAST_RANGES as readonly string[]).includes(value);
+
+/** What the user chose to look at: which window to pool and how much time to show. */
+export interface ForecastView {
+  window: ForecastWindow;
+  range: ForecastRange;
+}
+
+export const DEFAULT_FORECAST_VIEW: ForecastView = { window: 'auto', range: 'auto' };
+
 export interface QuotaForecast {
+  view: ForecastView;
   span: ForecastSpan;
   total: PoolForecast;
   providers: PoolForecast[];
@@ -82,6 +110,16 @@ export interface QuotaForecast {
 const PAST_SPAN_MS = 4 * DAY;
 const MIN_PAST_SPAN_MS = 12 * HOUR;
 const MAX_FUTURE_MS = 7 * DAY;
+/**
+ * A chosen range is exact: it shows that much time even where nothing was recorded,
+ * so the axis means what the button says. Projection stops a week out, as `auto` does,
+ * because a constant pace says little beyond one more window.
+ */
+const RANGE_SPAN_MS: Record<Exclude<ForecastRange, 'auto'>, { past: number; future: number }> = {
+  day: { past: DAY, future: DAY },
+  week: { past: 7 * DAY, future: 7 * DAY },
+  month: { past: 30 * DAY, future: MAX_FUTURE_MS },
+};
 /** The 24 hours behind `now` set the pace once the recording covers this much of them. */
 const HISTORY_PACE_MIN_COVERAGE_MS = 12 * HOUR;
 const SIM_STEP_MS = 15 * MINUTE;
@@ -326,11 +364,16 @@ export function valueAt(points: ChartPoint[], t: number): number | null {
   return span <= 0 ? b.v : a.v + ((b.v - a.v) * (t - a.t)) / span;
 }
 
-const usedAt = (points: Simulation['points'], t: number) =>
-  valueAt(
-    points.map((point) => ({ t: point.t, v: point.used })),
-    t
-  );
+/** `points` cut at `to`, ending on the interpolated value there. */
+function clipSeries(points: ChartPoint[], to: number): ChartPoint[] {
+  const kept = points.filter((point) => point.t <= to);
+  const last = kept[kept.length - 1];
+  if (last && last.t < to && kept.length < points.length) {
+    const value = valueAt(points, to);
+    if (value !== null) kept.push({ t: to, v: value });
+  }
+  return kept;
+}
 
 /**
  * Y-axis ticks from 0 to at least `max`: the smallest 1/2/2.5/5 step that needs
@@ -372,8 +415,12 @@ export function dayBounds(from: number, to: number): { start: number; end: numbe
   return out;
 }
 
-export function forecastSpan(accounts: QuotaAccount[], history: QuotaHistory, now: number) {
-  const tracked = trackedAccounts(accounts);
+/** The view `auto` picks: recorded history up to four days back, through the latest reset. */
+function autoSpan(
+  tracked: ReturnType<typeof trackedAccounts>,
+  history: QuotaHistory,
+  now: number
+): Pick<ForecastSpan, 'from' | 'to'> {
   const keys = new Set(tracked.map((entry) => entry.key));
   let firstSample = Infinity;
   Object.entries(history).forEach(([key, series]) => {
@@ -386,17 +433,31 @@ export function forecastSpan(accounts: QuotaAccount[], history: QuotaHistory, no
   const minTo = addLocalDays(startOfLocalDay(now), 3);
   const latestReset = Math.max(now, ...tracked.map((entry) => entry.limit.resetsAt));
   const to = Math.min(Math.max(latestReset, minTo), now + MAX_FUTURE_MS);
-  return { from, now, to };
+  return { from, to };
+}
+
+export function forecastSpan(
+  accounts: QuotaAccount[],
+  history: QuotaHistory,
+  now: number,
+  { window, range }: ForecastView = DEFAULT_FORECAST_VIEW
+): ForecastSpan {
+  const auto = autoSpan(trackedAccounts(accounts, window), history, now);
+  if (range === 'auto') return { ...auto, now, horizon: auto.to };
+  const { past, future } = RANGE_SPAN_MS[range];
+  const to = now + future;
+  return { from: now - past, now, to, horizon: Math.max(to, auto.to) };
 }
 
 function poolForecast(
   id: PoolForecast['id'],
   accounts: QuotaAccount[],
   history: QuotaHistory,
-  span: ForecastSpan
+  span: ForecastSpan,
+  window: ForecastWindow
 ): PoolForecast {
   const { from, now, to } = span;
-  const tracked = trackedAccounts(accounts);
+  const tracked = trackedAccounts(accounts, window);
   const liveKeys = new Set(tracked.map((entry) => entry.key));
 
   // Only the accounts in today's pool. A removed, renamed or disabled account's
@@ -430,8 +491,13 @@ function poolForecast(
     paceBasis = 'window';
   }
 
-  const sim = simulate(simAccounts, ratePerHour, now, to);
-  const projected = sim.points.map(({ t, v }) => ({ t, v }));
+  const sim = simulate(simAccounts, ratePerHour, now, span.horizon);
+  const projected = clipSeries(
+    sim.points.map(({ t, v }) => ({ t, v })),
+    to
+  );
+  const usedSeries = sim.points.map(({ t, used }) => ({ t, v: used }));
+  const usedAt = (t: number) => valueAt(usedSeries, t);
   const recorded = recordedPoints(pool, from, now);
 
   const days: DayUsage[] = dayBounds(from, to).map(({ start, end }) => {
@@ -450,8 +516,8 @@ function poolForecast(
     }
     if (start <= now) {
       const coverage = observed ? overlap(observed[0], observed[1], start, now) / (now - start || 1) : 0;
-      const usedNow = usedAt(sim.points, now) ?? 0;
-      const usedEnd = usedAt(sim.points, Math.min(end, to)) ?? usedNow;
+      const usedNow = usedAt(now) ?? 0;
+      const usedEnd = usedAt(Math.min(end, to)) ?? usedNow;
       return {
         start,
         end,
@@ -463,8 +529,8 @@ function poolForecast(
       };
     }
     const dayEnd = Math.min(end, to);
-    const usedStart = usedAt(sim.points, start);
-    const usedEnd = usedAt(sim.points, dayEnd);
+    const usedStart = usedAt(start);
+    const usedEnd = usedAt(dayEnd);
     return {
       start,
       end,
@@ -477,7 +543,7 @@ function poolForecast(
   });
 
   const emptyPoint =
-    remaining > EMPTY_EPSILON ? projected.find((point) => point.v <= EMPTY_EPSILON) : undefined;
+    remaining > EMPTY_EPSILON ? sim.points.find((point) => point.v <= EMPTY_EPSILON) : undefined;
   const runsOutAt = emptyPoint ? emptyPoint.t : null;
   const refill = runsOutAt === null ? null : sim.resets.find((mark) => mark.t >= runsOutAt);
 
@@ -577,13 +643,14 @@ function totalForecast(providers: PoolForecast[], span: ForecastSpan): PoolForec
 export function buildForecast(
   accounts: QuotaAccount[],
   history: QuotaHistory,
-  now: number
+  now: number,
+  view: ForecastView = DEFAULT_FORECAST_VIEW
 ): QuotaForecast {
-  const span = forecastSpan(accounts, history, now);
+  const span = forecastSpan(accounts, history, now, view);
   const providers = QUOTA_TAB_ORDER.map((provider) =>
     accounts.filter((account) => account.provider === provider)
   )
-    .filter((group) => trackedAccounts(group).length > 0)
-    .map((group) => poolForecast(group[0].provider, group, history, span));
-  return { span, total: totalForecast(providers, span), providers };
+    .filter((group) => trackedAccounts(group, view.window).length > 0)
+    .map((group) => poolForecast(group[0].provider, group, history, span, view.window));
+  return { view, span, total: totalForecast(providers, span), providers };
 }

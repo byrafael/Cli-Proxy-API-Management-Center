@@ -1767,7 +1767,20 @@
       "chart_summary": "{{name}}: {{value}} left of {{capacity}}. Use the arrow keys to read values over time.",
       "chart_role": "chart",
       "empty_refill": "Empty, refills in {{refill}}",
-      "empty": "Empty"
+      "empty": "Empty",
+      "window_label": "Window",
+      "window_auto": "Auto",
+      "window_session": "5-hour",
+      "window_weekly": "Weekly",
+      "window_fable": "Fable",
+      "window_auto_hint": "Each account's weekly limit, or its 5-hour limit when it has no weekly one",
+      "window_pooling": "Pooling each account's {{window}} window; accounts without one are left out.",
+      "range_label": "Range",
+      "range_auto": "Auto",
+      "range_day": "Day",
+      "range_week": "Week",
+      "range_month": "Month",
+      "range_auto_hint": "Recorded history through the latest reset"
     }
   },
   "plugin_management": {

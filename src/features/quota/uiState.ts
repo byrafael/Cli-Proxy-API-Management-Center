@@ -4,6 +4,8 @@ import {
   type QuotaSortMode,
   type QuotaTabId,
 } from './constants';
+import { isForecastWindow, type ForecastWindow } from './forecast/history';
+import { isForecastRange, type ForecastRange } from './forecast/model';
 import { GROUP_BY_OPTIONS, type GroupBy } from './home/model';
 
 /** 额度页 UI 偏好：会话级持久化（sessionStorage），跨会话不携带。 */
@@ -13,6 +15,9 @@ export type QuotaUiState = {
   groupBy?: GroupBy;
   /** 邮箱脱敏开关：投屏 / 截图时遮住真实地址。 */
   redactEmails?: boolean;
+  /** 用量预测：统计哪个额度窗口，以及图表显示多长时间。 */
+  forecastWindow?: ForecastWindow;
+  forecastRange?: ForecastRange;
 };
 
 const QUOTA_UI_STATE_KEY = 'quotaPage.uiState';
@@ -43,6 +48,8 @@ export const readQuotaUiState = (): QuotaUiState | null => {
       sortMode: isQuotaSortMode(parsed.sortMode) ? parsed.sortMode : undefined,
       groupBy: isQuotaGroupBy(parsed.groupBy) ? parsed.groupBy : undefined,
       redactEmails: typeof parsed.redactEmails === 'boolean' ? parsed.redactEmails : undefined,
+      forecastWindow: isForecastWindow(parsed.forecastWindow) ? parsed.forecastWindow : undefined,
+      forecastRange: isForecastRange(parsed.forecastRange) ? parsed.forecastRange : undefined,
     };
   } catch {
     return null;

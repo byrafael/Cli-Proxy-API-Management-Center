@@ -41,38 +41,66 @@ const HEARTBEAT_MS = HOUR;
 const STORAGE_KEY = 'quotaForecast.history.v1';
 const PROVIDERS = new Set<string>(QUOTA_TAB_ORDER);
 
-export type PrimaryWindow = 'weekly' | 'session';
+/** A quota window an account can report. Keys in the history end with one of these. */
+export type QuotaWindowId = 'weekly' | 'session' | 'fable';
 
-/** The window a pool tracks: the weekly limit when there is one, else the short one. */
-export const primaryLimit = (
-  account: QuotaAccount
-): { limit: QuotaLimit; window: PrimaryWindow; periodHours: number } | null => {
-  if (account.weekly) {
-    return {
-      limit: account.weekly,
-      window: 'weekly',
-      periodHours: account.weekly.periodHours ?? 168,
-    };
-  }
-  if (account.fiveHour) {
-    return {
-      limit: account.fiveHour,
-      window: 'session',
-      periodHours: account.fiveHour.periodHours ?? 5,
-    };
-  }
-  return null;
+export const QUOTA_WINDOW_IDS: readonly QuotaWindowId[] = ['session', 'weekly', 'fable'];
+
+/** Which window the forecast pools: one named window, or each account's primary one. */
+export type ForecastWindow = 'auto' | QuotaWindowId;
+
+export const FORECAST_WINDOWS: readonly ForecastWindow[] = ['auto', ...QUOTA_WINDOW_IDS];
+
+export const isForecastWindow = (value: unknown): value is ForecastWindow =>
+  typeof value === 'string' && (FORECAST_WINDOWS as readonly string[]).includes(value);
+
+/** Period assumed when the provider states none: Claude only names five_hour and seven_day. */
+const DEFAULT_PERIOD_HOURS: Record<QuotaWindowId, number> = { weekly: 168, session: 5, fable: 168 };
+
+const limitFor = (account: QuotaAccount, window: QuotaWindowId): QuotaLimit | null =>
+  window === 'weekly' ? account.weekly : window === 'session' ? account.fiveHour : account.fable;
+
+/** The named window of one account, with its period, or null when the account has none. */
+export const windowLimit = (
+  account: QuotaAccount,
+  window: QuotaWindowId
+): { limit: QuotaLimit; window: QuotaWindowId; periodHours: number } | null => {
+  const limit = limitFor(account, window);
+  return limit
+    ? { limit, window, periodHours: limit.periodHours ?? DEFAULT_PERIOD_HOURS[window] }
+    : null;
 };
 
-export const seriesKey = (accountId: string, window: PrimaryWindow) => `${accountId}#${window}`;
+/** The window a pool tracks by default: the weekly limit when there is one, else the short one. */
+export const primaryLimit = (account: QuotaAccount) =>
+  windowLimit(account, 'weekly') ?? windowLimit(account, 'session');
 
-/** Accounts whose limits are loaded and usable, with the window each contributes. */
-export const trackedAccounts = (accounts: QuotaAccount[]) =>
+export const seriesKey = (accountId: string, window: QuotaWindowId) => `${accountId}#${window}`;
+
+const isUsable = (account: QuotaAccount) => !account.pending && !account.error && !account.disabled;
+
+/**
+ * Accounts whose limits are loaded and usable, with the window each contributes:
+ * the chosen one, or under `auto` each account's primary window. An account that
+ * lacks the chosen window is left out rather than padded with another one.
+ */
+export const trackedAccounts = (accounts: QuotaAccount[], window: ForecastWindow = 'auto') =>
   accounts.flatMap((account) => {
-    if (account.pending || account.error || account.disabled) return [];
-    const primary = primaryLimit(account);
-    return primary ? [{ account, ...primary, key: seriesKey(account.id, primary.window) }] : [];
+    if (!isUsable(account)) return [];
+    const picked = window === 'auto' ? primaryLimit(account) : windowLimit(account, window);
+    return picked ? [{ account, ...picked, key: seriesKey(account.id, picked.window) }] : [];
   });
+
+/** How many usable accounts report each window, so the picker offers only real choices. */
+export const windowCounts = (accounts: QuotaAccount[]): Record<QuotaWindowId, number> => ({
+  session: trackedAccounts(accounts, 'session').length,
+  weekly: trackedAccounts(accounts, 'weekly').length,
+  fable: trackedAccounts(accounts, 'fable').length,
+});
+
+/** Every window of every usable account: what gets recorded, so any view has history. */
+const recordedWindows = (accounts: QuotaAccount[]) =>
+  QUOTA_WINDOW_IDS.flatMap((window) => trackedAccounts(accounts, window));
 
 /**
  * Append the current limits to the history. Returns the same object when
@@ -86,7 +114,7 @@ export function recordSamples(
   let next: QuotaHistory | null = null;
   const write = (): QuotaHistory => (next ??= { ...history });
 
-  for (const tracked of trackedAccounts(accounts)) {
+  for (const tracked of recordedWindows(accounts)) {
     const point: HistoryPoint = {
       t: now,
       v: tracked.limit.remainingPct,
@@ -213,10 +241,22 @@ export function mergeHistory(primary: QuotaHistory, secondary: QuotaHistory): Qu
   return merged;
 }
 
-/** Whether any series in the history belongs to one of these accounts. */
-export function hasSeriesFor(history: QuotaHistory, accounts: Pick<QuotaAccount, 'id'>[]): boolean {
+/**
+ * Whether any series in the history belongs to one of these accounts, for the
+ * named window when given.
+ */
+export function hasSeriesFor(
+  history: QuotaHistory,
+  accounts: Pick<QuotaAccount, 'id'>[],
+  window?: QuotaWindowId
+): boolean {
   const ids = new Set(accounts.map((account) => account.id));
-  return Object.keys(history).some((key) => ids.has(key.slice(0, key.lastIndexOf('#'))));
+  return Object.keys(history).some((key) => {
+    const split = key.lastIndexOf('#');
+    return (
+      ids.has(key.slice(0, split)) && (window === undefined || key.slice(split + 1) === window)
+    );
+  });
 }
 
 export function loadHistory(): QuotaHistory {

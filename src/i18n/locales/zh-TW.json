@@ -1792,7 +1792,20 @@
       "chart_summary": "{{name}}：剩餘 {{value}}，共 {{capacity}}。用方向鍵查看各時刻的數值。",
       "chart_role": "圖表",
       "empty_refill": "已用完，{{refill}}後恢復",
-      "empty": "已用完"
+      "empty": "已用完",
+      "window_label": "視窗",
+      "window_auto": "自動",
+      "window_session": "5 小時",
+      "window_weekly": "每週",
+      "window_fable": "Fable",
+      "window_auto_hint": "每個帳號的每週額度；沒有每週額度時使用 5 小時額度",
+      "window_pooling": "彙總各帳號的「{{window}}」視窗，沒有該視窗的帳號不計入。",
+      "range_label": "範圍",
+      "range_auto": "自動",
+      "range_day": "天",
+      "range_week": "週",
+      "range_month": "月",
+      "range_auto_hint": "已記錄的歷史，直到最近一次重置"
     }
   },
   "plugin_management": {

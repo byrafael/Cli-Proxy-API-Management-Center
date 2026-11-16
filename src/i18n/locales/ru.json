@@ -1780,7 +1780,20 @@
       "chart_summary": "{{name}}: осталось {{value}} из {{capacity}}. Стрелками можно смотреть значения во времени.",
       "chart_role": "график",
       "empty_refill": "Исчерпано, восстановится через {{refill}}",
-      "empty": "Исчерпано"
+      "empty": "Исчерпано",
+      "window_label": "Окно",
+      "window_auto": "Авто",
+      "window_session": "5 часов",
+      "window_weekly": "Неделя",
+      "window_fable": "Fable",
+      "window_auto_hint": "Недельный лимит каждого аккаунта или лимит на 5 часов, если недельного нет",
+      "window_pooling": "Суммируется окно «{{window}}» каждого аккаунта; аккаунты без него не учитываются.",
+      "range_label": "Период",
+      "range_auto": "Авто",
+      "range_day": "День",
+      "range_week": "Неделя",
+      "range_month": "Месяц",
+      "range_auto_hint": "Записанная история до ближайшего сброса"
     }
   },
   "plugin_management": {
