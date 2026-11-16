@@ -281,19 +281,40 @@ export function trimHistory(history: QuotaHistory, keepMs: number): QuotaHistory
   return trimmed;
 }
 
+/** Indexes where the remaining percent turns around: the last sample of a fall or rise and the first of the next move. */
+function turningPoints(points: HistoryPoint[]): Set<number> {
+  const turns = new Set<number>();
+  let direction = 0;
+  let lastMove = 0;
+  for (let index = 1; index < points.length; index += 1) {
+    const move = Math.sign(points[index].v - points[index - 1].v);
+    if (move === 0) continue;
+    if (direction !== 0 && move !== direction) {
+      turns.add(lastMove);
+      turns.add(index - 1);
+    }
+    direction = move;
+    lastMove = index;
+  }
+  return turns;
+}
+
 /**
- * `history` with only every `step`-th sample of each series. A series keeps its first
- * and last samples and both sides of every window reset, so coverage, the latest
- * reading and the use that resets split up all survive; only the detail between
- * readings thins out, and lines draw straight across the gaps.
+ * `history` with only every `step`-th sample of each series, plus the samples that
+ * matter: each series' first and last, both sides of every window reset, and every
+ * turning point. Between kept samples the value only falls or only rises, so the use
+ * the forecast adds up (the falls) is exactly what it was; only the detail inside a
+ * run thins out, and lines draw straight across it.
  */
 export function thinHistory(history: QuotaHistory, step: number): QuotaHistory {
   if (step <= 1) return history;
   const thinned: QuotaHistory = {};
   for (const [key, series] of Object.entries(history)) {
     const { points } = series;
+    const turns = turningPoints(points);
     const kept = points.filter((point, index) => {
       if (index === 0 || index === points.length - 1 || index % step === 0) return true;
+      if (turns.has(index)) return true;
       const before = points[index - 1];
       const after = points[index + 1];
       return point.r - before.r > ROLLED_MS || after.r - point.r > ROLLED_MS;

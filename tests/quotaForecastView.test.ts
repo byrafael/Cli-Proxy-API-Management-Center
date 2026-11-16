@@ -18,6 +18,7 @@ import {
 import {
   buildForecast,
   forecastSpan,
+  seriesUsage,
   isForecastRange,
   type ForecastView,
 } from '../src/features/quota/forecast/model';
@@ -440,6 +441,27 @@ describe('forecast history persistence', () => {
     expect(thinHistory({ x: thinned['a#session'] as never }, 1)).toEqual({
       x: thinned['a#session'],
     });
+  });
+
+  test('thinning leaves the use the forecast adds up unchanged', () => {
+    // Falls and rises inside one window (a restored allowance), so only the turns keep the total.
+    const shape = [100, 90, 80, 50, 70, 90, 100, 60, 40, 40, 40, 55, 30, 20, 10, 10, 25, 5];
+    const points = shape.map((v, index) => ({ t: NOW + index * HOUR, v, r: NOW + 40 * HOUR }));
+    const series = { provider: 'claude' as const, periodHours: 168, points };
+    const total = seriesUsage(series, NOW, NOW + 20 * HOUR);
+    for (const step of [2, 3, 4, 8]) {
+      const thinned = thinHistory({ a: series }, step).a;
+      expect(thinned.points.length).toBeLessThan(points.length);
+      expect(seriesUsage(thinned, NOW, NOW + 20 * HOUR)).toBeCloseTo(total, 9);
+    }
+    // The shape from review: 100 -> 50 -> 100 -> 50 -> 50 must still count 100 points used.
+    const bounce = [100, 50, 100, 50, 50].map((v, index) => ({
+      t: NOW + index * HOUR,
+      v,
+      r: NOW + 40 * HOUR,
+    }));
+    const bounced = { provider: 'claude' as const, periodHours: 168, points: bounce };
+    expect(seriesUsage(thinHistory({ a: bounced }, 8).a, NOW, NOW + 10 * HOUR)).toBe(100);
   });
 
   test('keeps only the recent week when even thinning does not fit', () => {
