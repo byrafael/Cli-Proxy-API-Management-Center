@@ -23,6 +23,7 @@ const PROXY_BODY = {
       ],
     },
     'claude-b.json#session': { p: 'claude', h: 5, d: [[29000010, 42.5, 29000200]] },
+    'claude-b.json#fable': { p: 'claude', h: 168, d: [[29000020, 36, 29000300]] },
   },
 };
 
