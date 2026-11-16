@@ -77,9 +77,10 @@ export interface ForecastSpan {
   now: number;
   to: number;
   /**
-   * How far the projection runs. It reaches at least `to`, and past it when the view
-   * is shorter than the horizon the run-out and refill readouts need, so a one-day
-   * view never claims the pool "won't run out" when it does on day three.
+   * How far the projection runs: always `now + MAX_FUTURE_MS`, whatever the view. The
+   * run-out, refill and next-reset readouts read from it, so they say the same thing
+   * for every range, and a one-day view never claims the pool "won't run out" when it
+   * does on day three. The chart draws only up to `to`.
    */
   horizon: number;
 }
@@ -443,10 +444,10 @@ export function forecastSpan(
   { window, range }: ForecastView = DEFAULT_FORECAST_VIEW
 ): ForecastSpan {
   const auto = autoSpan(trackedAccounts(accounts, window), history, now);
-  if (range === 'auto') return { ...auto, now, horizon: auto.to };
+  const horizon = now + MAX_FUTURE_MS;
+  if (range === 'auto') return { ...auto, now, horizon };
   const { past, future } = RANGE_SPAN_MS[range];
-  const to = now + future;
-  return { from: now - past, now, to, horizon: Math.max(to, auto.to) };
+  return { from: now - past, now, to: now + future, horizon };
 }
 
 function poolForecast(

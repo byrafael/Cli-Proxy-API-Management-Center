@@ -1780,7 +1780,8 @@
       "range_day": "Day",
       "range_week": "Week",
       "range_month": "Month",
-      "range_auto_hint": "Recorded history through the latest reset"
+      "range_auto_hint": "Recorded history through the latest reset",
+      "no_pool": "No account reports a weekly or 5-hour limit. Choose a window above."
     }
   },
   "plugin_management": {

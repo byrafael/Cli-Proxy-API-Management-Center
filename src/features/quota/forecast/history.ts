@@ -268,11 +268,47 @@ export function loadHistory(): QuotaHistory {
   }
 }
 
-export function saveHistory(history: QuotaHistory): void {
-  if (typeof window === 'undefined') return;
-  try {
-    window.localStorage.setItem(STORAGE_KEY, serializeHistory(history));
-  } catch {
-    // Storage full or blocked: the forecast still works from the current window.
+/** Most recent samples first kept when storage is full: a week, then two days. */
+const SHRINK_RETENTION_MS = [7 * DAY, 2 * DAY];
+
+/** `history` without samples older than `keepMs` before its newest sample. */
+export function trimHistory(history: QuotaHistory, keepMs: number): QuotaHistory {
+  const newest = latestSampleAt(history);
+  const trimmed: QuotaHistory = {};
+  for (const [key, series] of Object.entries(history)) {
+    const points = series.points.filter((point) => point.t >= newest - keepMs);
+    if (points.length > 0) trimmed[key] = { ...series, points };
+  }
+  return trimmed;
+}
+
+/**
+ * Persist the history. Recording every window multiplies what a browser holds, so
+ * when storage refuses it, keep the recent part instead of nothing at all; the
+ * proxy's own history and what the page holds in memory still cover the rest.
+ */
+export function saveHistory(
+  history: QuotaHistory,
+  storage: Pick<Storage, 'setItem'> | null = typeof window === 'undefined'
+    ? null
+    : (() => {
+        try {
+          return window.localStorage;
+        } catch {
+          return null;
+        }
+      })()
+): void {
+  if (!storage) return;
+  for (const keepMs of [Infinity, ...SHRINK_RETENTION_MS]) {
+    try {
+      storage.setItem(
+        STORAGE_KEY,
+        serializeHistory(keepMs === Infinity ? history : trimHistory(history, keepMs))
+      );
+      return;
+    } catch {
+      // Storage full or blocked: try a shorter history.
+    }
   }
 }

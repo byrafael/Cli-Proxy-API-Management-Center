@@ -5,8 +5,12 @@ import i18n from '@/i18n';
 import {
   hasSeriesFor,
   isForecastWindow,
+  parseHistory,
   recordSamples,
+  saveHistory,
+  serializeHistory,
   trackedAccounts,
+  trimHistory,
   windowCounts,
   type QuotaHistory,
 } from '../src/features/quota/forecast/history';
@@ -110,7 +114,9 @@ describe('forecast window selection', () => {
   });
 
   test('the 5-hour pool refills on its own short cycle', () => {
-    const accounts = [account('a', { fiveHour: limit(10, NOW + HOUR, 5), weekly: limit(90, NOW + DAY, 168) })];
+    const accounts = [
+      account('a', { fiveHour: limit(10, NOW + HOUR, 5), weekly: limit(90, NOW + DAY, 168) }),
+    ];
     const session = buildForecast(accounts, {}, NOW, view({ window: 'session' })).providers[0];
     expect(session.nextReset?.t).toBe(NOW + HOUR);
     const weekly = buildForecast(accounts, {}, NOW, view({ window: 'weekly' })).providers[0];
@@ -120,20 +126,23 @@ describe('forecast window selection', () => {
 
 describe('forecast window recording', () => {
   test('records every window an account reports so any view has history', () => {
-    const history = recordSamples({}, [full('a'), account('b', { fiveHour: limit(40, NOW + HOUR, 5) })], NOW);
-    expect(Object.keys(history).sort()).toEqual([
-      'a#fable',
-      'a#session',
-      'a#weekly',
-      'b#session',
-    ]);
+    const history = recordSamples(
+      {},
+      [full('a'), account('b', { fiveHour: limit(40, NOW + HOUR, 5) })],
+      NOW
+    );
+    expect(Object.keys(history).sort()).toEqual(['a#fable', 'a#session', 'a#weekly', 'b#session']);
     expect(history['a#fable'].periodHours).toBe(168);
     expect(history['a#session'].points).toEqual([{ t: NOW, v: 40, r: NOW + 2 * HOUR }]);
   });
 
   test('says the proxy recorded a window only when it holds that window', () => {
     const proxy: QuotaHistory = {
-      'a#weekly': { provider: 'claude', periodHours: 168, points: [{ t: NOW, v: 80, r: NOW + DAY }] },
+      'a#weekly': {
+        provider: 'claude',
+        periodHours: 168,
+        points: [{ t: NOW, v: 80, r: NOW + DAY }],
+      },
     };
     const accounts = [{ id: 'a' }];
     expect(hasSeriesFor(proxy, accounts)).toBe(true);
@@ -144,10 +153,15 @@ describe('forecast window recording', () => {
 
   test("an account's window history is not mixed into another window's pool", () => {
     const history = recordSamples({}, [full('a')], NOW - 2 * DAY);
-    const later = buildForecast([full('a')], history, NOW, view({ window: 'session' })).providers[0];
-    expect(later.recordingSince).toBe(NOW - 2 * DAY);
-    const other = buildForecast([full('a')], { 'a#weekly': history['a#weekly'] }, NOW, view({ window: 'session' }))
+    const later = buildForecast([full('a')], history, NOW, view({ window: 'session' }))
       .providers[0];
+    expect(later.recordingSince).toBe(NOW - 2 * DAY);
+    const other = buildForecast(
+      [full('a')],
+      { 'a#weekly': history['a#weekly'] },
+      NOW,
+      view({ window: 'session' })
+    ).providers[0];
     expect(other.recordingSince).toBeNull();
   });
 });
@@ -157,7 +171,9 @@ describe('forecast range', () => {
     const span = forecastSpan([full('a')], {}, NOW, view());
     expect(span.now).toBe(NOW);
     expect(span.from).toBe(NOW - 12 * HOUR);
-    expect(span.horizon).toBe(span.to);
+    // The projection reads a week ahead for every view; the chart ends at `to`.
+    expect(span.horizon).toBe(NOW + 7 * DAY);
+    expect(span.to).toBeLessThanOrEqual(span.horizon);
   });
 
   test('a chosen range is exact, with or without recorded history', () => {
@@ -218,6 +234,37 @@ describe('forecast range', () => {
     expect(facts('day')).toEqual(facts('auto'));
     expect(facts('week')).toEqual(facts('auto'));
     expect(facts('month')).toEqual(facts('auto'));
+  });
+
+  test('a run-out past the auto view still reads the same in every range', () => {
+    // 70 left, using 30 a day, reset in 2 days: it refills, then empties again around
+    // day 5, beyond where `auto` charts but inside the week the projection covers.
+    const accounts = [account('a', { weekly: limit(70, NOW + 2 * DAY, 168) })];
+    const history: QuotaHistory = {
+      'a#weekly': {
+        provider: 'claude',
+        periodHours: 168,
+        points: [
+          { t: NOW - DAY, v: 100, r: NOW + 2 * DAY },
+          { t: NOW, v: 70, r: NOW + 2 * DAY },
+        ],
+      },
+    };
+    const readouts = (range: ForecastView['range']) => {
+      const forecast = buildForecast(accounts, history, NOW, view({ range }));
+      const pool = forecast.providers[0];
+      return { runsOutAt: pool.runsOutAt, refillAt: pool.refillAt, to: forecast.span.to };
+    };
+    const auto = readouts('auto');
+    expect(auto.runsOutAt).not.toBeNull();
+    expect(auto.runsOutAt!).toBeGreaterThan(NOW + 5 * DAY);
+    expect(auto.runsOutAt!).toBeLessThan(NOW + 5.5 * DAY);
+    // The chart still ends where it always did; only the readout looks further.
+    expect(auto.runsOutAt!).toBeGreaterThan(auto.to);
+    for (const range of ['day', 'week', 'month'] as const) {
+      const other = readouts(range);
+      expect([other.runsOutAt, other.refillAt]).toEqual([auto.runsOutAt, auto.refillAt]);
+    }
   });
 
   test('day cells cover exactly the span for every range', () => {
@@ -285,6 +332,102 @@ describe('forecast view picker', () => {
   });
 });
 
+describe('forecast view picker without an auto pool', () => {
+  beforeAll(() => i18n.changeLanguage('en'));
+  afterAll(() => i18n.changeLanguage('zh-CN'));
+
+  test('a login that reports only Fable still reaches the window picker', () => {
+    const accounts = [account('a', { fable: limit(60, NOW + 3 * DAY) })];
+    const auto = buildForecast(accounts, {}, NOW, view());
+    expect(auto.providers).toEqual([]);
+    const html = renderToStaticMarkup(
+      createElement(QuotaForecast, {
+        forecast: auto,
+        theme: 'light',
+        available: windowCounts(accounts),
+        onWindowChange: () => {},
+        onRangeChange: () => {},
+      })
+    );
+    expect(html).toContain('>Fable</button>');
+    expect(html).toContain('Choose a window above');
+    const fable = buildForecast(accounts, {}, NOW, view({ window: 'fable' }));
+    expect(fable.providers[0].remaining).toBe(60);
+  });
+
+  test('renders nothing when no account reports any window', () => {
+    const empty = buildForecast([], {}, NOW, view());
+    const html = renderToStaticMarkup(
+      createElement(QuotaForecast, {
+        forecast: empty,
+        theme: 'light',
+        available: windowCounts([]),
+        onWindowChange: () => {},
+        onRangeChange: () => {},
+      })
+    );
+    expect(html).toBe('');
+  });
+});
+
+describe('forecast history persistence', () => {
+  const series = (days: number): QuotaHistory => ({
+    'a#session': {
+      provider: 'claude',
+      periodHours: 5,
+      points: Array.from({ length: days * 24 }, (_, index) => ({
+        t: NOW - (days * 24 - index) * HOUR,
+        v: 50,
+        r: NOW + HOUR,
+      })),
+    },
+  });
+
+  /** A store that refuses writes larger than `limit` characters, like a full quota. */
+  const store = (limit: number) => {
+    const writes: string[] = [];
+    return {
+      writes,
+      setItem: (_key: string, value: string) => {
+        if (value.length > limit) throw new Error('QuotaExceededError');
+        writes.push(value);
+      },
+    };
+  };
+
+  test('trims to the recent samples before the newest one', () => {
+    const trimmed = trimHistory(series(30), 2 * DAY);
+    const points = trimmed['a#session'].points;
+    expect(points[points.length - 1].t).toBe(NOW - HOUR);
+    expect(points[0].t).toBeGreaterThanOrEqual(NOW - HOUR - 2 * DAY);
+    expect(points.length).toBe(2 * 24 + 1);
+  });
+
+  test('writes everything when storage has room', () => {
+    const storage = store(Infinity);
+    saveHistory(series(30), storage);
+    expect(storage.writes).toHaveLength(1);
+    expect(parseHistory(storage.writes[0])['a#session'].points).toHaveLength(30 * 24);
+  });
+
+  test('keeps the recent week instead of nothing when storage is full', () => {
+    const full = serializeHistory(series(30)).length;
+    const storage = store(Math.floor(full / 2));
+    saveHistory(series(30), storage);
+    expect(storage.writes).toHaveLength(1);
+    const kept = parseHistory(storage.writes[0])['a#session'].points;
+    expect(kept.length).toBeGreaterThan(0);
+    expect(kept.length).toBeLessThan(30 * 24);
+  });
+
+  test('gives up quietly when even a short history does not fit, or storage is missing', () => {
+    const storage = store(10);
+    expect(() => saveHistory(series(30), storage)).not.toThrow();
+    expect(storage.writes).toHaveLength(0);
+    expect(() => saveHistory(series(30), null)).not.toThrow();
+  });
+});
+
 describe('forecast view locales', () => {
   const KEYS = [
     'window_label',
@@ -300,6 +443,7 @@ describe('forecast view locales', () => {
     'range_week',
     'range_month',
     'range_auto_hint',
+    'no_pool',
   ];
 
   test('every locale names each window and range, and the note keeps its placeholder', async () => {

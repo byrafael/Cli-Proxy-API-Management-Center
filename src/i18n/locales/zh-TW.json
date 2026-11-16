@@ -1805,7 +1805,8 @@
       "range_day": "天",
       "range_week": "週",
       "range_month": "月",
-      "range_auto_hint": "已記錄的歷史，直到最近一次重置"
+      "range_auto_hint": "已記錄的歷史，直到最近一次重置",
+      "no_pool": "沒有帳號回報每週或 5 小時額度。請在上方選擇一個視窗。"
     }
   },
   "plugin_management": {

@@ -1777,7 +1777,8 @@
       "range_day": "天",
       "range_week": "周",
       "range_month": "月",
-      "range_auto_hint": "已记录的历史，直到最近一次重置"
+      "range_auto_hint": "已记录的历史，直到最近一次重置",
+      "no_pool": "没有账号报告每周或 5 小时限额。请在上方选择一个窗口。"
     }
   },
   "plugin_management": {
