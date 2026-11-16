@@ -1792,7 +1792,16 @@
       "chart_summary": "{{name}}：剩餘 {{value}}，共 {{capacity}}。用方向鍵查看各時刻的數值。",
       "chart_role": "圖表",
       "empty_refill": "已用完，{{refill}}後恢復",
-      "empty": "已用完"
+      "empty": "已用完",
+      "horizon_label": "時間範圍",
+      "horizon_day": "天",
+      "horizon_week": "週",
+      "horizon_month": "月",
+      "window_label": "額度視窗",
+      "window_auto": "自動",
+      "window_five_hour": "5 小時",
+      "window_weekly": "每週",
+      "window_fable": "Fable"
     }
   },
   "plugin_management": {

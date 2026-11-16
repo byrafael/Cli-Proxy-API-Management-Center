@@ -1780,7 +1780,16 @@
       "chart_summary": "{{name}}: осталось {{value}} из {{capacity}}. Стрелками можно смотреть значения во времени.",
       "chart_role": "график",
       "empty_refill": "Исчерпано, восстановится через {{refill}}",
-      "empty": "Исчерпано"
+      "empty": "Исчерпано",
+      "horizon_label": "Период",
+      "horizon_day": "День",
+      "horizon_week": "Неделя",
+      "horizon_month": "Месяц",
+      "window_label": "Окно квоты",
+      "window_auto": "Авто",
+      "window_five_hour": "5 часов",
+      "window_weekly": "Неделя",
+      "window_fable": "Fable"
     }
   },
   "plugin_management": {
